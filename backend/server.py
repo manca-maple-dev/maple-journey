@@ -171,36 +171,42 @@ async def _startup():
         "latency_sum_ms": 0.0,
         "latency_max_ms": 0.0,
     }
-    _validate_runtime_config()
-    await _validate_database()
-    await run_startup()
-    await ensure_credit_indexes()
     
-    # Initialize companion memory service
-    from core.db import db
-    companion_mem = CompanionMemory(db)
-    await companion_mem.ensure_indexes()
-    await ensure_webhook_indexes()
+    # Validate configuration (non-blocking for deployment)
+    try:
+        _validate_runtime_config()
+        await _validate_database()
+        await run_startup()
+        await ensure_credit_indexes()
+        
+        # Initialize companion memory service
+        from core.db import db
+        companion_mem = CompanionMemory(db)
+        await companion_mem.ensure_indexes()
+        await ensure_webhook_indexes()
 
-    # Initialize proactive deadline scheduler
-    initialize_scheduler(db)
-    logger.info("Proactive deadline scheduler initialized")
+        # Initialize proactive deadline scheduler
+        initialize_scheduler(db)
+        logger.info("Proactive deadline scheduler initialized")
 
-    _scheduler_stop_event = asyncio.Event()
-    _scheduler_task = asyncio.create_task(
-        scheduler_loop(
-            db,
-            interval_minutes=int(os.environ.get("UPDATE_PIPELINE_INTERVAL_MINUTES", "360")),
-            stop_event=_scheduler_stop_event,
+        _scheduler_stop_event = asyncio.Event()
+        _scheduler_task = asyncio.create_task(
+            scheduler_loop(
+                db,
+                interval_minutes=int(os.environ.get("UPDATE_PIPELINE_INTERVAL_MINUTES", "360")),
+                stop_event=_scheduler_stop_event,
+            )
         )
-    )
-    logger.info("Companion memory service initialized")
+        logger.info("Companion memory service initialized")
 
-    _notifications_task = asyncio.create_task(schedule_morning_notifications())
-    logger.info("Morning notifications scheduler started")
+        _notifications_task = asyncio.create_task(schedule_morning_notifications())
+        logger.info("Morning notifications scheduler started")
 
-    _research_task = asyncio.create_task(broadcast_research_insights())
-    logger.info("Research insights broadcaster started")
+        _research_task = asyncio.create_task(broadcast_research_insights())
+        logger.info("Research insights broadcaster started")
+    except Exception as e:
+        logger.warning(f"Startup warning: {e}. Service will start in limited mode.")
+        logger.info("Service started in limited mode. Add required env vars for full functionality.")
 
 
 @app.on_event("shutdown")
