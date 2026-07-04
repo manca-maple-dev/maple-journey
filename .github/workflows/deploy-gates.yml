@@ -1,0 +1,98 @@
+name: Deploy Gates
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval \"db.adminCommand('ping')\""
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install backend deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Compile gate
+        run: |
+          python -m py_compile \
+            backend/server.py \
+            backend/routers/companion.py \
+            backend/routers/observability.py \
+            backend/routers/proactive_alerts.py \
+            backend/routers/hybrid_llm.py \
+            backend/routers/location_crisis.py \
+            backend/routers/policy_feed.py \
+            backend/routers/personalization.py \
+            backend/routers/memory_layer.py \
+            backend/services/deadline_engine.py \
+            backend/services/proactive_triggers.py \
+            backend/services/location_awareness.py \
+            backend/services/crisis_escalation.py \
+            backend/services/policy_feed.py \
+            backend/services/personalization.py \
+            backend/services/memory_layer.py \
+            backend/services/llm_router.py \
+            backend/services/webllm_engine.py
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend build gate
+        working-directory: frontend
+        run: npm run build
+
+      - name: Start backend for smoke test
+        env:
+          MONGO_URL: mongodb://localhost:27017
+          DB_NAME: maplejourney_ci
+          JWT_SECRET: ci-test-secret-not-for-production
+          ADMIN_EMAIL: ci@maplejourney.ca
+          ADMIN_PASSWORD: CITest!2026
+          OPENAI_API_KEY: sk-placeholder-not-used-in-ci
+          OPENAI_CHAT_MODEL: gpt-4.1
+          CORS_ORIGINS: "*"
+        run: |
+          nohup python backend/server.py > backend.log 2>&1 &
+          sleep 8
+
+      - name: Smoke test health gate
+        run: |
+          curl -f http://127.0.0.1:8000/api/health
+          curl -f http://127.0.0.1:8000/api/ops/health
+          curl -f http://127.0.0.1:8000/api/ops/ready
+          curl -f http://127.0.0.1:8000/api/assistant/model-status -H "Authorization: Bearer invalid" -o /dev/null -w "%{http_code}" | grep -E "^401$"
+
+      - name: Upload backend log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-log
+          path: backend.log

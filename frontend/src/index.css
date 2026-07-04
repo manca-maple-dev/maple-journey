@@ -1,0 +1,143 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 217 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 351 84% 49%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 351 84% 49%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 100% 50%;
+    --chart-1: 217 100% 50%;
+    --chart-2: 351 84% 49%;
+    --chart-3: 160 60% 45%;
+    --chart-4: 43 96% 56%;
+    --chart-5: 271 81% 56%;
+    --radius: 0.75rem;
+  }
+  .dark {
+    --background: 222 47% 5%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 15%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 15%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 0 84% 60%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 217 91% 60%;
+    --chart-1: 217 91% 60%;
+    --chart-2: 0 84% 60%;
+    --chart-3: 160 60% 45%;
+    --chart-4: 43 96% 56%;
+    --chart-5: 271 81% 56%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(circle at top, hsl(var(--primary) / 0.08), transparent 42%),
+      radial-gradient(circle at right bottom, hsl(var(--accent) / 0.06), transparent 36%);
+  }
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Outfit', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .mj-prose {
+    @apply prose prose-slate max-w-none dark:prose-invert;
+  }
+
+  .mj-prose :where(a) {
+    @apply text-brand-600 underline decoration-brand-300 decoration-2 underline-offset-4 transition-colors hover:text-brand-700;
+  }
+
+  .mj-prose :where(code) {
+    @apply rounded bg-muted px-1.5 py-0.5 text-[0.9em] text-foreground;
+  }
+}
+
+/* Brand utility classes */
+.mj-grid-bg {
+  background-image:
+    linear-gradient(to right, hsl(var(--border) / 0.6) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border) / 0.6) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+}
+.mj-dot-bg {
+  background-image: radial-gradient(hsl(var(--muted-foreground) / 0.18) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.mj-glow-blue { background: radial-gradient(circle at center, hsl(217 100% 50% / 0.18), transparent 65%); }
+.mj-glow-red { background: radial-gradient(circle at center, hsl(351 84% 49% / 0.16), transparent 65%); }
+.mj-glass {
+  background: hsl(var(--card) / 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid hsl(var(--border) / 0.7);
+}
+.mj-gradient-text {
+  background: linear-gradient(120deg, hsl(217 100% 50%), hsl(351 84% 49%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+::selection { background: hsl(var(--primary) / 0.2); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.3); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
+
+@keyframes mj-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.mj-float { animation: mj-float 6s ease-in-out infinite; }
+
+/* Skeleton loaders — flat fill only, no shimmer (motion budget). */
+.mj-shimmer { background: hsl(var(--muted-foreground) / 0.08); }
+
+/* Respect users who prefer reduced motion: disable all non-essential animation. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

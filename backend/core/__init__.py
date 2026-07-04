@@ -1,0 +1,1 @@
+"""MapleJourney backend package."""
