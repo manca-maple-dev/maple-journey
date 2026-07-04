@@ -9,5 +9,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy entire backend
 COPY backend ./
 
-# Start server - Railway provides PORT env var
-CMD ["sh", "-c", "python -m uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Copy startup script
+COPY start.py /app/start.py
+
+# Start server - Railway provides PORT env var (default 8000)
+CMD ["python", "/app/start.py"]
