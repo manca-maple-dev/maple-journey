@@ -9,9 +9,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy entire backend
 COPY backend ./
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD python -c "import requests; requests.get('http://localhost:8000/api/health', timeout=5)"
-
-# Start server
-CMD ["python", "-m", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start server - Railway provides PORT env var
+CMD ["sh", "-c", "python -m uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}"]
