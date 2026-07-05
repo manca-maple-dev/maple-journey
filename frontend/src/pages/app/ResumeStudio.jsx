@@ -1256,40 +1256,6 @@ export default function ResumeStudio() {
                 height: "11in",
                 overflow: "hidden",
               }}
-
-              {/* Quality Check Modal */}
-              {showQualityPreview && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                  <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl">
-                    <h3 className="font-display text-xl font-semibold">Ready to Download</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Quick check before export: your template and spacing look polished. Continue to print/download PDF.
-                    </p>
-                    <div className="mt-4 rounded-xl border border-border bg-background p-3 text-xs text-muted-foreground">
-                      Template: <span className="font-semibold text-foreground">{selectedTemplate.name}</span> • Theme: <span className="font-semibold text-foreground">{smartTheme.name}</span>
-                    </div>
-                    <div className="mt-5 flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowQualityPreview(false)}
-                        className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-secondary"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowQualityPreview(false);
-                          window.print();
-                        }}
-                        className="rounded-lg bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-2 text-sm font-semibold text-white hover:from-brand-700 hover:to-brand-800"
-                      >
-                        Continue to Download
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             >
               {/* A4/Letter page with print styles */}
               <div className="p-6" style={{ fontSize: "11pt", lineHeight: "1.4" }}>
