@@ -13,6 +13,7 @@ import {
   List,
 } from "lucide-react";
 import { useMaple } from "@/context/MapleContext";
+import QualityPreviewModal from "@/components/resume/QualityPreviewModal";
 
 const TEMPLATES = [
   // Modern Category
@@ -124,6 +125,96 @@ const TEMPLATES = [
   },
 ];
 
+const SMART_THEMES = {
+  general: {
+    name: "Balanced Professional",
+    accent: "#2563eb",
+    accentSoft: "#dbeafe",
+    accentBorder: "#93c5fd",
+    heading: "#0f172a",
+    body: "#1f2937",
+    muted: "#6b7280",
+  },
+  tech: {
+    name: "Technical Precision",
+    accent: "#0f766e",
+    accentSoft: "#ccfbf1",
+    accentBorder: "#5eead4",
+    heading: "#042f2e",
+    body: "#134e4a",
+    muted: "#0f766e",
+  },
+  healthcare: {
+    name: "Trust & Care",
+    accent: "#0369a1",
+    accentSoft: "#e0f2fe",
+    accentBorder: "#7dd3fc",
+    heading: "#082f49",
+    body: "#0c4a6e",
+    muted: "#0369a1",
+  },
+  finance: {
+    name: "Executive Finance",
+    accent: "#14532d",
+    accentSoft: "#dcfce7",
+    accentBorder: "#86efac",
+    heading: "#052e16",
+    body: "#166534",
+    muted: "#15803d",
+  },
+  creative: {
+    name: "Creative Impact",
+    accent: "#9d174d",
+    accentSoft: "#fce7f3",
+    accentBorder: "#f9a8d4",
+    heading: "#500724",
+    body: "#831843",
+    muted: "#9d174d",
+  },
+};
+
+const TEMPLATE_VISUALS = {
+  "north-star": { titleSize: "text-2xl", sectionTrack: "tracking-[0.12em]", contentGap: "space-y-4", sectionLabelSize: "text-xs" },
+  harbour: { titleSize: "text-2xl", sectionTrack: "tracking-[0.14em]", contentGap: "space-y-4", sectionLabelSize: "text-xs" },
+  aurora: { titleSize: "text-[1.85rem]", sectionTrack: "tracking-[0.16em]", contentGap: "space-y-5", sectionLabelSize: "text-xs" },
+  cedar: { titleSize: "text-2xl", sectionTrack: "tracking-[0.13em]", contentGap: "space-y-4", sectionLabelSize: "text-xs" },
+  summit: { titleSize: "text-xl", sectionTrack: "tracking-[0.1em]", contentGap: "space-y-3", sectionLabelSize: "text-[11px]" },
+  "maple-pro": { titleSize: "text-2xl", sectionTrack: "tracking-[0.12em]", contentGap: "space-y-4", sectionLabelSize: "text-xs" },
+  express: { titleSize: "text-lg", sectionTrack: "tracking-[0.08em]", contentGap: "space-y-2", sectionLabelSize: "text-[10px]" },
+  catalyst: { titleSize: "text-lg", sectionTrack: "tracking-[0.09em]", contentGap: "space-y-2", sectionLabelSize: "text-[10px]" },
+  prestige: { titleSize: "text-[2rem]", sectionTrack: "tracking-[0.2em]", contentGap: "space-y-5", sectionLabelSize: "text-xs" },
+  velocity: { titleSize: "text-[1.9rem]", sectionTrack: "tracking-[0.16em]", contentGap: "space-y-5", sectionLabelSize: "text-xs" },
+};
+
+function detectResumeDomain(headline = "", skills = "") {
+  const text = `${headline} ${skills}`.toLowerCase();
+  if (/(developer|engineer|software|data|cloud|devops|python|react|javascript|it)/.test(text)) return "tech";
+  if (/(nurse|health|medical|clinic|caregiver|healthcare|pharmacy)/.test(text)) return "healthcare";
+  if (/(finance|account|bank|analyst|bookkeeper|audit|tax)/.test(text)) return "finance";
+  if (/(design|creative|marketing|content|brand|ux|ui|artist)/.test(text)) return "creative";
+  return "general";
+}
+
+function withTemplateAccent(theme, templateId) {
+  const overrides = {
+    "north-star": "#2563eb",
+    harbour: "#0f766e",
+    aurora: "#a21caf",
+    cedar: "#166534",
+    summit: "#334155",
+    "maple-pro": "#9333ea",
+    express: "#ea580c",
+    catalyst: "#dc2626",
+    prestige: "#0f172a",
+    velocity: "#0891b2",
+  };
+  const accent = overrides[templateId] || theme.accent;
+  return {
+    ...theme,
+    accent,
+  };
+}
+
 function toMarkdown(resume) {
   const lines = [
     `# ${resume.name}`,
@@ -158,6 +249,9 @@ export default function ResumeStudio() {
   const [templateId, setTemplateId] = useState("maple-pro");
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState("grid"); // grid or list
+  const [showQualityPreview, setShowQualityPreview] = useState(false);
+  const [printSafe, setPrintSafe] = useState(true);
+  const [previewMode, setPreviewMode] = useState("normal"); // normal or fullscreen
 
   const [resume, setResume] = useState({
     name: "Your Name",
@@ -206,6 +300,33 @@ export default function ResumeStudio() {
     [templateId]
   );
 
+  const smartTheme = useMemo(() => {
+    const domain = detectResumeDomain(resume.headline, resume.skills);
+    const baseTheme = SMART_THEMES[domain] || SMART_THEMES.general;
+    return {
+      domain,
+      ...withTemplateAccent(baseTheme, templateId),
+    };
+  }, [resume.headline, resume.skills, templateId]);
+
+  const visualSystem = useMemo(
+    () => TEMPLATE_VISUALS[templateId] || TEMPLATE_VISUALS["maple-pro"],
+    [templateId]
+  );
+
+  const renderTheme = useMemo(() => {
+    if (!printSafe) return smartTheme;
+    return {
+      ...smartTheme,
+      accent: smartTheme.accent,
+      accentSoft: "#f8fafc",
+      accentBorder: "#cbd5e1",
+      body: "#111827",
+      muted: "#374151",
+      heading: "#020617",
+    };
+  }, [smartTheme, printSafe]);
+
   const completeness = useMemo(() => {
     let score = 0;
     if (resume.name.trim()) score += 10;
@@ -220,18 +341,6 @@ export default function ResumeStudio() {
   // Render preview based on template layout
   const renderTemplatePreview = () => {
     const layout = selectedTemplate.layout;
-    const headerClasses = {
-      blue: "border-blue-600 text-blue-600",
-      teal: "border-teal-600 text-teal-600",
-      fuchsia: "border-fuchsia-600 text-fuchsia-600",
-      emerald: "border-emerald-600 text-emerald-600",
-      zinc: "border-zinc-600 text-zinc-600",
-      brand: "border-brand-600 text-brand-600",
-      orange: "border-orange-600 text-orange-600",
-      red: "border-red-600 text-red-600",
-      slate: "border-slate-900 text-slate-900",
-      cyan: "border-cyan-600 text-cyan-600",
-    }[selectedTemplate.colors];
 
     // Two-column layout (sidebar)
     if (layout === "two-column") {
@@ -260,14 +369,14 @@ export default function ResumeStudio() {
 
             {/* Right Content */}
             <div className="space-y-4">
-              <div className={`border-b-2 ${headerClasses} pb-3`}>
-                <h3 className="font-display text-2xl font-bold">{resume.name}</h3>
+              <div className="border-b-2 pb-3" style={{ borderColor: renderTheme.accent, color: renderTheme.heading }}>
+                <h3 className={`font-display ${visualSystem.titleSize} font-bold`} style={{ color: renderTheme.heading }}>{resume.name}</h3>
                 <p className="mt-1 text-sm font-medium">{resume.headline}</p>
               </div>
 
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Summary</h4>
-                <p className="mt-2 text-xs leading-relaxed text-foreground">{resume.summary}</p>
+                <p className="mt-2 text-xs leading-relaxed" style={{ color: renderTheme.body }}>{resume.summary}</p>
               </div>
 
               <div>
@@ -282,7 +391,7 @@ export default function ResumeStudio() {
                       <p className="text-xs text-muted-foreground">{exp.company}</p>
                       <ul className="mt-1 list-disc space-y-0.5 pl-3 text-xs">
                         {exp.bullets.slice(0, 1).map((b, i) => (
-                          <li key={i} className="text-foreground">{b}</li>
+                          <li key={i} style={{ color: renderTheme.body }}>{b}</li>
                         ))}
                       </ul>
                     </div>
@@ -303,20 +412,20 @@ export default function ResumeStudio() {
     if (layout === "compact") {
       return (
         <article className="rounded-2xl border border-border bg-background p-5">
-          <header className={`border-b-2 ${headerClasses} pb-2`}>
-            <h3 className="font-display text-lg font-bold">{resume.name}</h3>
-            <p className="text-xs font-medium text-foreground/80">{resume.headline}</p>
+          <header className="border-b-2 pb-2" style={{ borderColor: renderTheme.accent }}>
+            <h3 className={`font-display ${visualSystem.titleSize} font-bold`} style={{ color: renderTheme.heading }}>{resume.name}</h3>
+            <p className="text-xs font-medium" style={{ color: renderTheme.body }}>{resume.headline}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{resume.email} • {resume.phone} • {resume.location}</p>
           </header>
 
           <div className="mt-2 grid grid-cols-2 gap-3">
             <div>
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Summary</h4>
-              <p className="mt-1 text-xs leading-tight text-foreground line-clamp-2">{resume.summary}</p>
+              <p className="mt-1 text-xs leading-tight line-clamp-2" style={{ color: renderTheme.body }}>{resume.summary}</p>
             </div>
             <div>
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Skills</h4>
-              <p className="mt-1 text-xs text-foreground line-clamp-2">{resume.skills}</p>
+              <p className="mt-1 text-xs line-clamp-2" style={{ color: renderTheme.body }}>{resume.skills}</p>
             </div>
           </div>
 
@@ -338,32 +447,32 @@ export default function ResumeStudio() {
     // Default single-column layout
     return (
       <article className="rounded-2xl border border-border bg-background p-6 space-y-4">
-        <header className={`border-b-2 ${headerClasses} pb-3`}>
-          <h3 className="font-display text-2xl font-bold tracking-tight">{resume.name}</h3>
-          <p className="mt-1 text-sm font-medium">{resume.headline}</p>
+        <header className="border-b-2 pb-3" style={{ borderColor: renderTheme.accent }}>
+          <h3 className={`font-display ${visualSystem.titleSize} font-bold tracking-tight`} style={{ color: renderTheme.heading }}>{resume.name}</h3>
+          <p className="mt-1 text-sm font-medium" style={{ color: renderTheme.body }}>{resume.headline}</p>
           <p className="mt-2 text-xs text-muted-foreground">{resume.email} • {resume.phone} • {resume.location}</p>
         </header>
 
-        <section>
-          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-70">Professional Summary</h4>
-          <p className="mt-2 text-sm leading-relaxed">{resume.summary}</p>
+        <section className={visualSystem.contentGap}>
+          <h4 className={`${visualSystem.sectionLabelSize} font-bold uppercase ${visualSystem.sectionTrack} text-muted-foreground opacity-70`}>Professional Summary</h4>
+          <p className="mt-2 text-sm leading-relaxed" style={{ color: renderTheme.body }}>{resume.summary}</p>
         </section>
 
-        <section>
-          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-70">Professional Experience</h4>
+        <section className={visualSystem.contentGap}>
+          <h4 className={`${visualSystem.sectionLabelSize} font-bold uppercase ${visualSystem.sectionTrack} text-muted-foreground opacity-70`}>Professional Experience</h4>
           <div className="mt-2 space-y-4">
             {resume.experience.map((exp) => (
-              <div key={`${exp.title}-${exp.company}`} className="border-l-2 border-border pl-3">
+              <div key={`${exp.title}-${exp.company}`} className="border-l-2 pl-3" style={{ borderColor: renderTheme.accentBorder }}>
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
                   <div>
-                    <p className="text-sm font-bold">{exp.title}</p>
+                    <p className="text-sm font-bold" style={{ color: renderTheme.heading }}>{exp.title}</p>
                     <p className="text-xs font-medium text-muted-foreground">{exp.company}</p>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 sm:mt-0">{exp.period}</p>
                 </div>
                 <ul className="mt-1.5 space-y-1 list-disc pl-4 marker:text-xs">
                   {exp.bullets.map((b, i) => (
-                    <li key={i} className="text-sm">{b}</li>
+                    <li key={i} className="text-sm" style={{ color: renderTheme.body }}>{b}</li>
                   ))}
                 </ul>
               </div>
@@ -373,12 +482,12 @@ export default function ResumeStudio() {
 
         <div className="grid grid-cols-2 gap-4">
           <section>
-            <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-70">Skills</h4>
-            <p className="mt-2 text-sm">{resume.skills}</p>
+            <h4 className={`${visualSystem.sectionLabelSize} font-bold uppercase ${visualSystem.sectionTrack} text-muted-foreground opacity-70`}>Skills</h4>
+            <p className="mt-2 text-sm" style={{ color: renderTheme.body }}>{resume.skills}</p>
           </section>
           <section>
-            <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-70">Education</h4>
-            <p className="mt-2 text-sm">{resume.education}</p>
+            <h4 className={`${visualSystem.sectionLabelSize} font-bold uppercase ${visualSystem.sectionTrack} text-muted-foreground opacity-70`}>Education</h4>
+            <p className="mt-2 text-sm" style={{ color: renderTheme.body }}>{resume.education}</p>
           </section>
         </div>
       </article>
@@ -603,7 +712,31 @@ export default function ResumeStudio() {
                 <h2 className="font-display text-lg font-semibold">{selectedTemplate.name} Preview</h2>
                 <p className="mt-0.5 text-xs text-muted-foreground">{selectedTemplate.category}</p>
               </div>
-              <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-muted-foreground">{selectedTemplate.vibe}</span>
+              <span
+                className="rounded-full px-2.5 py-1 text-xs font-semibold"
+                style={{
+                  backgroundColor: renderTheme.accentSoft,
+                  border: `1px solid ${renderTheme.accentBorder}`,
+                  color: renderTheme.muted,
+                }}
+              >
+                {selectedTemplate.vibe} • {smartTheme.name}
+              </span>
+            </div>
+
+            <div className="mb-3 flex items-center justify-between rounded-xl border border-border bg-background px-3 py-2">
+              <p className="text-xs font-medium text-muted-foreground">PDF color mode</p>
+              <button
+                type="button"
+                onClick={() => setPrintSafe((v) => !v)}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                  printSafe
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+                    : "bg-secondary text-muted-foreground"
+                }`}
+              >
+                {printSafe ? "Print-safe ON" : "Print-safe OFF"}
+              </button>
             </div>
 
             <div className="overflow-hidden rounded-2xl border border-border">
@@ -613,24 +746,36 @@ export default function ResumeStudio() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-5">
             <h3 className="font-display text-lg font-semibold mb-1">Maple power tools</h3>
             <p className="text-xs text-muted-foreground mb-4">Enhance and export your resume</p>
             
             {/* Download Button - Prominent */}
             <div className="mb-4 rounded-2xl bg-gradient-to-r from-brand-50 to-brand-100/50 dark:from-brand-500/10 dark:to-brand-600/10 border-2 border-brand-200 dark:border-brand-500/30 p-4">
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white px-4 py-3.5 text-sm font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <Download className="h-5 w-5" />
-                  <span>Download as PDF</span>
-                </span>
-                <span className="text-xs bg-white/20 rounded-full px-2.5 py-1">Ctrl+P</span>
-              </button>
-              <p className="text-xs text-muted-foreground mt-2 text-center">Save professionally formatted resume to your computer</p>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode("fullscreen")}
+                  className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white px-4 py-3.5 text-sm font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <LayoutTemplate className="h-5 w-5" />
+                    <span>Preview Full Page</span>
+                  </span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-4 py-3.5 text-sm font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Download className="h-5 w-5" />
+                    <span>Download as PDF</span>
+                  </span>
+                  <span className="text-xs bg-white/20 rounded-full px-2.5 py-1">Ctrl+P</span>
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3 text-center">See alignment & layout before downloading</p>
             </div>
 
             {/* Other Tools */}
@@ -677,11 +822,11 @@ export default function ResumeStudio() {
           <div className="flex gap-2 flex-shrink-0">
             <button
               type="button"
-              onClick={copyMarkdown}
+              onClick={() => setPreviewMode("fullscreen")}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background hover:bg-secondary px-3 py-2 text-xs font-medium transition-colors"
             >
-              <Copy className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Copy</span>
+              <LayoutTemplate className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Preview</span>
             </button>
             <button
               type="button"
@@ -697,6 +842,58 @@ export default function ResumeStudio() {
 
       {/* Padding for sticky bar */}
       <div className="h-24" />
+
+      {/* Fullscreen Preview Modal */}
+      {previewMode === "fullscreen" && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-background">
+          {/* Header */}
+          <div className="border-b border-border bg-card px-4 sm:px-6 py-4 flex items-center justify-between">
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold">Full Page Preview</h2>
+              <p className="text-xs text-muted-foreground mt-1">This is exactly how your resume will print to PDF</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white px-4 py-2 text-sm font-semibold transition-all"
+              >
+                <Download className="h-4 w-4" />
+                Download PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewMode("normal")}
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-background hover:bg-secondary px-4 py-2 text-sm font-medium transition-colors"
+              >
+                <span>Close</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Content - A4/Letter Size Preview */}
+          <div className="flex-1 overflow-auto bg-muted/20 p-4 sm:p-8 flex items-center justify-center">
+            <div 
+              className="bg-white text-black shadow-2xl"
+              style={{
+                width: "8.5in",
+                height: "11in",
+                overflow: "hidden",
+              }}
+            >
+              {/* A4/Letter page with print styles */}
+              <div className="p-6" style={{ fontSize: "11pt", lineHeight: "1.4" }}>
+                {renderTemplatePreview()}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-border bg-card px-4 sm:px-6 py-3 text-center text-xs text-muted-foreground">
+            <p>Tip: Use Cmd+P (Mac) or Ctrl+P (Windows) in the preview to save directly as PDF</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
