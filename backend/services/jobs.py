@@ -5,6 +5,7 @@ Smart logic:
 - Location-based: 25km radius from user's city
 - Real-time caching: caches jobs, refreshes on search, clears on inactivity
 - Filter-rich: salary, job type, experience level, date posted
+- Multi-provider: Adzuna, Jooble, Job Bank
 """
 import aiohttp
 import logging
@@ -15,6 +16,11 @@ from typing import List, Dict, Optional, Tuple
 from core.db import db, clean
 from pymongo import UpdateOne, ASCENDING, DESCENDING
 from pymongo.errors import PyMongoError
+
+try:
+    from services.adzuna_jobs import search_adzuna_jobs
+except ImportError:
+    search_adzuna_jobs = None
 
 logger = logging.getLogger("jobs")
 
@@ -377,38 +383,57 @@ async def search_jobs(
         force_refresh
     )
     
-    # Live scrape on each search when Jooble key is configured.
-    # Falls back to Job Bank when Jooble is unavailable.
+    # Live scrape on each search. Try Adzuna first, then Jooble, then Job Bank.
     scraped_jobs: List[Dict] = []
     should_refresh = force_refresh or is_stale or bool(JOOBLE_API_KEY)
     if should_refresh:
         logger.info(
             f"Refreshing live jobs for {location} "
-            f"(stale={is_stale}, force={force_refresh}, jooble={bool(JOOBLE_API_KEY)})"
+            f"(stale={is_stale}, force={force_refresh})"
         )
-        scraped_jobs = await scrape_jobs_from_jooble(
-            query=keywords or "",
-            location=location,
-            limit=100,
-        )
-        logger.info(
-            "Jobs refresh provider result: jooble_count=%s location=%s query='%s'",
-            len(scraped_jobs),
-            location,
-            keywords or "",
-        )
-        if not scraped_jobs:
-            scraped_jobs = await scrape_jobs_from_jobbank(
+        
+        # Try Adzuna first if available
+        if search_adzuna_jobs:
+            try:
+                adzuna_jobs = await search_adzuna_jobs(
+                    location=location,
+                    keywords=keywords,
+                    limit=50,
+                )
+                if adzuna_jobs:
+                    scraped_jobs.extend(adzuna_jobs)
+                    logger.info(f"Adzuna: fetched {len(adzuna_jobs)} jobs for {location}")
+            except Exception as e:
+                logger.warning(f"Adzuna scrape failed: {e}")
+        
+        # Fall back to Jooble
+        if not scraped_jobs or len(scraped_jobs) < 20:
+            scraped_jobs.extend(await scrape_jobs_from_jooble(
                 query=keywords or "",
                 location=location,
                 limit=100,
+            ))
+            logger.info(
+                "Jobs refresh provider result: jooble_count=%s location=%s query='%s'",
+                len(scraped_jobs),
+                location,
+                keywords or "",
             )
+        
+        # Fall back to Job Bank
+        if not scraped_jobs or len(scraped_jobs) < 20:
+            scraped_jobs.extend(await scrape_jobs_from_jobbank(
+                query=keywords or "",
+                location=location,
+                limit=100,
+            ))
             logger.info(
                 "Jobs refresh provider fallback: jobbank_count=%s location=%s query='%s'",
                 len(scraped_jobs),
                 location,
                 keywords or "",
             )
+        
         if scraped_jobs:
             try:
                 await cache_jobs(user_id, scraped_jobs, location)

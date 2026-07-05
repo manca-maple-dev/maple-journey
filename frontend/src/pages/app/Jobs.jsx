@@ -245,24 +245,24 @@ export default function Jobs() {
             {lastUpdated && ` · Updated ${lastUpdated.toLocaleTimeString()}`}
           </p>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2">
             {jobs.length > 0 ? (
               jobs.map((job) => (
                 <div
                   key={job._id}
-                  className="group flex flex-col rounded-2xl border border-border bg-card p-5 transition-all hover:-translate-y-1 hover:shadow-lg"
+                  className="group flex flex-col rounded-2xl border border-border bg-card p-4 sm:p-5 transition-all hover:-translate-y-1 hover:shadow-lg"
                 >
                   {/* Header */}
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-display font-semibold leading-snug text-foreground truncate">
+                      <h3 className="font-display font-semibold leading-snug text-foreground truncate text-sm sm:text-base">
                         {job.title}
                       </h3>
                       <p className="text-xs text-muted-foreground truncate">{job.company}</p>
                     </div>
                     <button
                       onClick={() => toggle(job._id)}
-                      className="ml-2 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-secondary"
+                      className="ml-2 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-secondary transition-colors"
                     >
                       {savedJobs.has(job._id) ? (
                         <BookmarkCheck className="h-5 w-5 text-brand-500" />
@@ -273,26 +273,26 @@ export default function Jobs() {
                   </div>
 
                   {/* Details */}
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5" /> {job.location}
+                      <MapPin className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{job.location}</span>
                     </span>
                     {job.salary_max && (
                       <>
-                        <span>·</span>
+                        <span className="hidden sm:inline">·</span>
                         <span>{formatSalary(job.salary_min, job.salary_max)}</span>
                       </>
                     )}
                     {job.job_type && (
                       <>
-                        <span>·</span>
+                        <span className="hidden sm:inline">·</span>
                         <span>{job.job_type}</span>
                       </>
                     )}
                   </div>
 
                   {/* Tags */}
-                  <div className="mt-3 flex flex-wrap gap-1.5">
+                  <div className="mt-3 flex flex-wrap gap-1">
                     {job.industry && (
                       <span className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
                         {job.industry}
@@ -317,15 +317,15 @@ export default function Jobs() {
                     href={job.external_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-4 flex items-center justify-center gap-1.5 rounded-full border border-border py-2 text-sm font-semibold text-brand-600 transition-colors hover:bg-brand-50 dark:hover:bg-brand-500/10"
+                    className="mt-4 flex items-center justify-center gap-1.5 rounded-full border border-border py-2.5 px-3 text-xs sm:text-sm font-semibold text-brand-600 transition-colors hover:bg-brand-50 dark:hover:bg-brand-500/10"
                   >
                     View job <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 </div>
               ))
             ) : (
-              <div className="col-span-full py-12 text-center">
-                <p className="text-muted-foreground">No jobs found yet for these filters. Try adjusting your search. We are continuously feeding Maple with more accurate job data and this list will keep improving.</p>
+              <div className="col-span-1 sm:col-span-2 py-12 text-center">
+                <p className="text-muted-foreground text-sm">No jobs found yet for these filters. Try adjusting your search. We are continuously feeding Maple with more accurate job data and this list will keep improving.</p>
               </div>
             )}
           </div>
