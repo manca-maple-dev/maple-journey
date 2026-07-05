@@ -44,24 +44,20 @@ _research_task: asyncio.Task | None = None
 async def _init_telegram_services() -> None:
     """Initialize Telegram bot + monitoring independently of optional startup tasks."""
     telegram_bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    enable_polling = os.environ.get("TELEGRAM_START_POLLING", "false").strip().lower() in {"1", "true", "yes"}
     if telegram_bot_token:
         try:
             # Initialize Telegram collector
             telegram.telegram_collector.bot_token = telegram_bot_token
             app.telegram_app = await telegram.telegram_collector.initialize_app()
 
-            # Start bot polling using async lifecycle methods that are safe
-            # inside FastAPI's already-running event loop.
             await app.telegram_app.initialize()
             await app.telegram_app.start()
-            try:
+            if enable_polling and getattr(app.telegram_app, "updater", None):
                 await app.telegram_app.updater.start_polling()
                 logger.info("✅ Telegram bot initialized and polling started")
-            except Exception as poll_error:
-                if "Conflict: terminated by other getUpdates request" in str(poll_error):
-                    logger.warning("Telegram polling already active elsewhere; continuing startup")
-                else:
-                    raise
+            else:
+                logger.info("✅ Telegram bot initialized without polling")
 
             # Initialize monitoring service
             from core.db import db
