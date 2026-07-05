@@ -670,6 +670,8 @@ class TelegramDataCollector:
             filename=f"maple_data_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json",
             caption=f"📊 **Data Export**\n\n✅ {len(export_data)} records exported"
         )
+
+    async def cancel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Cancel current operation"""
         user_id = update.effective_user.id
         await self.user_sessions.update_one(
