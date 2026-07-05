@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { API } from "@/lib/api";
+import { getStoredToken } from "@/lib/api";
 
 /**
  * Maple Wingman Context — One persistent, page-aware companion.
@@ -46,7 +47,8 @@ export function MapleProvider({ children }) {
   useEffect(() => {
     if (!sessionId || loadedRef.current) return;
     loadedRef.current = true;
-    const token = localStorage.getItem("mj_token");
+    const token = getStoredToken();
+    if (!token) return;
     fetch(`${API}/assistant/history?session_id=${sessionId}`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((data) => Array.isArray(data) && setMessages(data.map((m) => ({ role: m.role, content: m.content }))))
@@ -60,7 +62,7 @@ export function MapleProvider({ children }) {
     setSending(true);
     setAssistantPhase("reasoning");
     try {
-      const token = localStorage.getItem("mj_token");
+      const token = getStoredToken();
       if (!token) {
         setMessages((m) => {
           const copy = [...m];
@@ -86,6 +88,9 @@ export function MapleProvider({ children }) {
           // ignore JSON parse errors and use default message
         }
         if (res.status === 401) {
+          // Clear both token keys to force a clean re-login path.
+          localStorage.removeItem("mj_token");
+          localStorage.removeItem("token");
           detail = "Your session expired. Please log in again to continue chatting.";
         }
         setMessages((m) => {

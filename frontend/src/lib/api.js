@@ -3,11 +3,16 @@ import axios from "axios";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
 
+export function getStoredToken() {
+  // Backward compatibility: older builds stored auth under "token".
+  return localStorage.getItem("mj_token") || localStorage.getItem("token") || "";
+}
+
 // Axios instance with bearer-token auth (token stored in localStorage).
 const api = axios.create({ baseURL: API });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("mj_token");
+  const token = getStoredToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });

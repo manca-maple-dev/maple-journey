@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import api, { apiError } from "@/lib/api";
+import api, { apiError, getStoredToken } from "@/lib/api";
 
 const AuthContext = createContext(null);
 
@@ -17,7 +17,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const bootstrap = useCallback(async () => {
-    const token = localStorage.getItem("mj_token");
+    const token = getStoredToken();
     if (!token) {
       setUser(false);
       return;
@@ -28,6 +28,7 @@ export function AuthProvider({ children }) {
       await loadFeatures();
     } catch {
       localStorage.removeItem("mj_token");
+      localStorage.removeItem("token");
       setUser(false);
     }
   }, [loadFeatures]);
@@ -44,6 +45,7 @@ export function AuthProvider({ children }) {
         return { ok: false, error: "Login succeeded but no auth token was returned." };
       }
       localStorage.setItem("mj_token", token);
+      localStorage.setItem("token", token);
       setUser(data.user);
       await loadFeatures();
       return { ok: true, user: data.user };
@@ -60,6 +62,7 @@ export function AuthProvider({ children }) {
         return { ok: false, error: "Registration succeeded but no auth token was returned." };
       }
       localStorage.setItem("mj_token", token);
+      localStorage.setItem("token", token);
       setUser(data.user);
       await loadFeatures();
       return { ok: true, user: data.user };
@@ -70,6 +73,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem("mj_token");
+    localStorage.removeItem("token");
     setUser(false);
     setFeatures({});
   };
