@@ -614,12 +614,31 @@ export default function ResumeStudio() {
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-5">
-            <h3 className="font-display text-lg font-semibold">Maple power tools</h3>
-            <div className="mt-3 space-y-2">
+            <h3 className="font-display text-lg font-semibold mb-1">Maple power tools</h3>
+            <p className="text-xs text-muted-foreground mb-4">Enhance and export your resume</p>
+            
+            {/* Download Button - Prominent */}
+            <div className="mb-4 rounded-2xl bg-gradient-to-r from-brand-50 to-brand-100/50 dark:from-brand-500/10 dark:to-brand-600/10 border-2 border-brand-200 dark:border-brand-500/30 p-4">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white px-4 py-3.5 text-sm font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Download className="h-5 w-5" />
+                  <span>Download as PDF</span>
+                </span>
+                <span className="text-xs bg-white/20 rounded-full px-2.5 py-1">Ctrl+P</span>
+              </button>
+              <p className="text-xs text-muted-foreground mt-2 text-center">Save professionally formatted resume to your computer</p>
+            </div>
+
+            {/* Other Tools */}
+            <div className="space-y-2">
               <button
                 type="button"
                 onClick={() => askMapleToEnhance("resume", toMarkdown(resume))}
-                className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm hover:border-brand-300"
+                className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm hover:bg-secondary/50 transition-colors"
               >
                 <span className="inline-flex items-center gap-2"><Sparkles className="h-4 w-4 text-brand-600" /> Rewrite full resume for Canadian recruiters</span>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
@@ -627,7 +646,7 @@ export default function ResumeStudio() {
               <button
                 type="button"
                 onClick={() => askMapleToEnhance("experience bullets", resume.experience.flatMap((e) => e.bullets).join(" | "))}
-                className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm hover:border-brand-300"
+                className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm hover:bg-secondary/50 transition-colors"
               >
                 <span className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-brand-600" /> Improve impact metrics in bullets</span>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
@@ -635,7 +654,7 @@ export default function ResumeStudio() {
               <button
                 type="button"
                 onClick={copyMarkdown}
-                className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm hover:border-brand-300"
+                className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm hover:bg-secondary/50 transition-colors"
               >
                 <span className="inline-flex items-center gap-2">
                   {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4 text-brand-600" />} 
@@ -643,18 +662,41 @@ export default function ResumeStudio() {
                 </span>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm hover:border-brand-300"
-              >
-                <span className="inline-flex items-center gap-2"><Download className="h-4 w-4 text-brand-600" /> Print / Save as PDF</span>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              </button>
             </div>
           </div>
         </div>
       </section>
+
+      {/* Floating Download Bar - Sticky Bottom */}
+      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-card/95 backdrop-blur-sm p-4 sm:p-6 z-40">
+        <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground">Ready to download?</p>
+            <p className="text-xs text-muted-foreground">Your {selectedTemplate.name} resume is ready</p>
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={copyMarkdown}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background hover:bg-secondary px-3 py-2 text-xs font-medium transition-colors"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Copy</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white px-4 py-2 text-xs font-semibold transition-all shadow-md hover:shadow-lg active:scale-95"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Download PDF</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Padding for sticky bar */}
+      <div className="h-24" />
     </div>
   );
 }
