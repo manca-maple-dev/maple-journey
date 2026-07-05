@@ -126,6 +126,13 @@ async def scrape_jobs_from_jooble(
                     return []
 
                 data = await resp.json()
+                provider_count = len(data.get("jobs", []) or [])
+                logger.info(
+                    "Jooble response: status=200 query='%s' location='%s' jobs=%s",
+                    query,
+                    location,
+                    provider_count,
+                )
                 for item in data.get("jobs", [])[: min(limit, 100)]:
                     salary_text = item.get("salary") or ""
                     salary_min, salary_max = _parse_salary_range(salary_text)
@@ -333,14 +340,31 @@ async def search_jobs(
             location=location,
             limit=100,
         )
+        logger.info(
+            "Jobs refresh provider result: jooble_count=%s location=%s query='%s'",
+            len(scraped_jobs),
+            location,
+            keywords or "",
+        )
         if not scraped_jobs:
             scraped_jobs = await scrape_jobs_from_jobbank(
                 query=keywords or "",
                 location=location,
                 limit=100,
             )
+            logger.info(
+                "Jobs refresh provider fallback: jobbank_count=%s location=%s query='%s'",
+                len(scraped_jobs),
+                location,
+                keywords or "",
+            )
         if scraped_jobs:
             await cache_jobs(user_id, scraped_jobs, location)
+            logger.info(
+                "Jobs cache write: inserted_or_updated=%s location=%s",
+                len(scraped_jobs),
+                location,
+            )
     
     # Build filter query
     filters = {
@@ -375,6 +399,12 @@ async def search_jobs(
     
     # Count total
     total = await jobs_collection.count_documents(filters)
+    logger.info(
+        "Jobs filter result: location=%s days_posted=%s total=%s",
+        location,
+        days_posted,
+        total,
+    )
 
     # If a strict recency window yields no results, widen once to keep UX non-empty.
     if total == 0 and days_posted and days_posted <= 7:
