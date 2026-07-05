@@ -313,12 +313,63 @@ async def search_jobs(
     """
     jobs_collection = db.jobs_cache
     now = datetime.utcnow()
+
+    def _filter_live_jobs(items: List[Dict]) -> List[Dict]:
+        """Apply API filters to freshly scraped items when DB path is unavailable."""
+        filtered = list(items)
+
+        if keywords:
+            kw = str(keywords).lower()
+            filtered = [
+                j for j in filtered
+                if kw in str(j.get("title", "")).lower()
+                or kw in str(j.get("company", "")).lower()
+                or kw in str(j.get("description", "")).lower()
+            ]
+
+        if job_type:
+            jt = str(job_type).lower()
+            filtered = [j for j in filtered if str(j.get("job_type", "")).lower() == jt]
+
+        if experience_level:
+            ex = str(experience_level).lower()
+            filtered = [j for j in filtered if str(j.get("experience_level", "")).lower() == ex]
+
+        if salary_min is not None:
+            filtered = [
+                j for j in filtered
+                if j.get("salary_max") is not None and int(j.get("salary_max")) >= int(salary_min)
+            ]
+        if salary_max is not None:
+            filtered = [
+                j for j in filtered
+                if j.get("salary_max") is not None and int(j.get("salary_max")) <= int(salary_max)
+            ]
+
+        if days_posted:
+            cutoff = now - timedelta(days=days_posted)
+            kept: List[Dict] = []
+            for j in filtered:
+                try:
+                    posted = datetime.fromisoformat(str(j.get("date_posted", "")))
+                    if posted >= cutoff:
+                        kept.append(j)
+                except Exception:
+                    continue
+            filtered = kept
+
+        filtered.sort(key=lambda x: str(x.get("date_posted", "")), reverse=True)
+        return filtered[:limit]
     
     # Check cache freshness (30 min threshold)
-    cache_age = await jobs_collection.find_one(
-        {"location": location},
-        sort=[("created_at", -1)]
-    )
+    try:
+        cache_age = await jobs_collection.find_one(
+            {"location": location},
+            sort=[("created_at", -1)]
+        )
+    except Exception as e:
+        logger.warning(f"Jobs cache age check failed: {e}")
+        cache_age = None
     
     is_stale = (
         not cache_age or
@@ -359,12 +410,15 @@ async def search_jobs(
                 keywords or "",
             )
         if scraped_jobs:
-            await cache_jobs(user_id, scraped_jobs, location)
-            logger.info(
-                "Jobs cache write: inserted_or_updated=%s location=%s",
-                len(scraped_jobs),
-                location,
-            )
+            try:
+                await cache_jobs(user_id, scraped_jobs, location)
+                logger.info(
+                    "Jobs cache write: inserted_or_updated=%s location=%s",
+                    len(scraped_jobs),
+                    location,
+                )
+            except Exception as e:
+                logger.warning(f"Jobs cache write failed: {e}")
     
     # Build filter query
     filters = {
@@ -398,7 +452,11 @@ async def search_jobs(
         filters["date_posted"] = {"$gte": cutoff.isoformat()}
     
     # Count total
-    total = await jobs_collection.count_documents(filters)
+    try:
+        total = await jobs_collection.count_documents(filters)
+    except Exception as e:
+        logger.warning(f"Jobs count query failed: {e}")
+        total = 0
     logger.info(
         "Jobs filter result: location=%s days_posted=%s total=%s",
         location,
@@ -411,7 +469,11 @@ async def search_jobs(
         relaxed_filters = {**filters}
         relaxed_cutoff = now - timedelta(days=30)
         relaxed_filters["date_posted"] = {"$gte": relaxed_cutoff.isoformat()}
-        relaxed_total = await jobs_collection.count_documents(relaxed_filters)
+        try:
+            relaxed_total = await jobs_collection.count_documents(relaxed_filters)
+        except Exception as e:
+            logger.warning(f"Jobs relaxed count query failed: {e}")
+            relaxed_total = 0
         if relaxed_total > 0:
             filters = relaxed_filters
             total = relaxed_total
@@ -421,11 +483,33 @@ async def search_jobs(
             )
 
     # Fetch and score
-    cursor = jobs_collection.find(filters).sort("date_posted", -1).limit(limit)
-    jobs = await cursor.to_list(limit)
+    jobs: List[Dict] = []
+    if total > 0:
+        try:
+            cursor = jobs_collection.find(filters).sort("date_posted", -1).limit(limit)
+            jobs = await cursor.to_list(limit)
+        except Exception as e:
+            logger.warning(f"Jobs fetch query failed: {e}")
+            jobs = []
+
+    # Fail-open path: if DB-backed result is empty but live provider returned jobs,
+    # return filtered live jobs so production users still see data.
+    if not jobs and scraped_jobs:
+        fallback_jobs = _filter_live_jobs(scraped_jobs)
+        if fallback_jobs:
+            logger.info(
+                "Jobs fail-open fallback used: returned_live_jobs=%s location=%s",
+                len(fallback_jobs),
+                location,
+            )
+            total = len(fallback_jobs)
+            jobs = fallback_jobs
     
     # Score each job by relevance to user profile
-    user_profile = await db.users.find_one({"_id": user_id})
+    try:
+        user_profile = await db.users.find_one({"_id": user_id})
+    except Exception:
+        user_profile = {}
     for job in jobs:
         job = clean(job)
         job["relevance_score"] = _score_job_relevance(job, user_profile or {})
