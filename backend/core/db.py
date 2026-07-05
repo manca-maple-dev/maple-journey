@@ -2,8 +2,11 @@
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
 
-client = AsyncIOMotorClient(os.environ["MONGO_URL"])
-db = client[os.environ["DB_NAME"]]
+_mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+_db_name = os.environ.get("DB_NAME", "maplejourney")
+
+client = AsyncIOMotorClient(_mongo_url)
+db = client[_db_name]
 
 
 def clean(doc: dict) -> dict:
