@@ -180,7 +180,7 @@ def _quality_directive(complexity: str, tier: str) -> str:
         "4. RISK WARNING: One critical mistake to avoid\n"
         "5. WHAT HAPPENS NEXT: The phase after this one (1-2 sentences)\n\n"
         
-        "TONE (Professional, Warm, Efficient):\n"
+        "TONE (Professional, Neutral, Efficient):\n"
         "• Use concrete details, not abstractions\n"
         "• Cite sources with deep links (but don't explain the citation)\n"
         "• Define terms once, briefly, inline\n"
@@ -272,8 +272,8 @@ def _quality_directive(complexity: str, tier: str) -> str:
         "✓ Stop at 1200 words; never exceed\n\n"
         
         "BEST COMPANION MARKERS:\n"
-        "✓ Opens with empathy if appropriate ('I know this is confusing')\n"
-        "✓ Ends with hope/confidence ('Here's the good news')\n"
+        "✓ Opens with a direct, respectful answer\n"
+        "✓ Uses plain professional language without slang or emoji\n"
         "✓ Gives concrete next action (not 'contact IRCC' but '[Phone], wait times 45 days')\n"
         "✓ Acknowledges trade-offs honestly\n"
         "✓ Shows logical reasoning, not just rules\n"
@@ -342,20 +342,20 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
                 "user_id": uid,
                 "session_id": session_id,
                 "role": "assistant",
-                "content": "🛡️ We detected unusual activity on your account. For security, please contact support.",
+                "content": "We detected unusual activity on your account. For security, please contact support.",
                 "created_at": now,
                 "security_event": "rate_limited_injection"
             })
             
             return StreamingResponse(
-                (i async for i in ["🛡️ Security check: Please contact support."]),
+                (i async for i in ["Security check: please contact support."]),
                 media_type="text/plain",
                 headers={"X-Maple-Security": "rate-limited"}
             )
         
         # Log and reject single injection attempt
         logger.warning(f"Injection attempt blocked for user {uid}: {attack_reason}")
-        safe_response = "I'm here to help with immigration and settlement questions. How can I assist you today? 🍁"
+        safe_response = "I can help with immigration and settlement questions. How can I assist you today?"
         
         await db.chat_messages.insert_one({
             "id": str(uuid.uuid4()),
@@ -376,7 +376,7 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
         })
         
         return StreamingResponse(
-            (i async for i in [safe_response]),
+                (i async for i in [safe_response]),
             media_type="text/plain",
             headers={"X-Maple-Security": "attempt-blocked"}
         )
@@ -506,7 +506,10 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
 
     answer = enforce_citation_policy(answer, rag_context)
     answer = filter_response_for_leaks(answer)
-    answer = attach_verified_citations_if_missing(answer, rag_context)
+        answer = attach_verified_citations_if_missing(answer, rag_context)
+
+    if not answer.strip():
+        answer = "I’m unable to generate a reliable answer right now. Please try again in a moment."
 
     await db.chat_messages.insert_one(
         {

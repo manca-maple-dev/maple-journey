@@ -133,7 +133,7 @@ export default function Assistant() {
                   </span>
                 )}
               </div>
-              <p className="truncate text-[11px] text-muted-foreground">Cited answers from IRCC, the CRA &amp; Service Canada.</p>
+              <p className="truncate text-[11px] text-muted-foreground">Grounded answers from IRCC, the CRA, and Service Canada.</p>
               <p className="mt-1 hidden text-[11px] text-muted-foreground sm:block" data-testid="assistant-page-context">{getPageContext()}</p>
             </div>
             {messages.length > 0 && (
@@ -213,7 +213,7 @@ export default function Assistant() {
                           : (
                             <div className="space-y-1">
                               <div className="text-[11px] font-medium text-muted-foreground">
-                                {isReasoning ? "Maple is reasoning..." : "Maple is typing..."}
+                                {isReasoning ? "Generating response..." : "Preparing response..."}
                               </div>
                               <TypingDots />
                             </div>
