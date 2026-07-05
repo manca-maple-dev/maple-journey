@@ -39,7 +39,7 @@ export default function AskMaple() {
     setError(null);
 
     try {
-      const response = await fetch('/api/chat/ask', {
+      const response = await fetch('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
