@@ -44,6 +44,7 @@ const ESSENTIALS = [
 ];
 
 const QUICK_WINS = [
+  { id: "resume", title: "Build your resume", desc: "Choose a clean template and edit with Maple guidance.", icon: FileText, onClick: () => navigate("/app/resume") },
   { id: "bank", title: "Open a bank account", desc: "Compare newcomer-friendly banks and starter offers.", icon: CreditCard, onClick: () => window.open("https://www.canada.ca/en/financial-consumer-agency/services/banking/opening-bank-account.html", "_blank", "noreferrer") },
   { id: "language", title: "Find language classes", desc: "ESL, French and settlement language support.", icon: Languages, onClick: () => window.open("https://www.canada.ca/en/immigration-refugees-citizenship/services/new-immigrants/new-life-canada/language-training.html", "_blank", "noreferrer") },
   { id: "health", title: "Set up health coverage", desc: "Check province rules and waiting periods.", icon: HeartPulse, onClick: () => navigate("/app/accessibilities") },

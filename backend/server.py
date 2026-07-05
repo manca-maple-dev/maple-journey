@@ -27,7 +27,7 @@ from services.update_pipeline import scheduler_loop
 from services.notifications_briefing import schedule_morning_notifications
 from services.research_agent import broadcast_research_insights
 from services.proactive_triggers import initialize_scheduler
-from routers import auth, wings, messaging, domain, chat, admin, payments, paystack, overview, webhooks, companion, companion_ops, jobs, community, messaging_channels, proactive_alerts, hybrid_llm, location_crisis, policy_feed, personalization, memory_layer, observability, benefits, telegram, telegram_monitor, automation
+from routers import auth, wings, messaging, domain, chat, admin, payments, paystack, overview, webhooks, companion, companion_ops, jobs, community, messaging_channels, proactive_alerts, hybrid_llm, location_crisis, policy_feed, personalization, memory_layer, observability, benefits, telegram, telegram_monitor, automation, resume
 from services.companion_memory import CompanionMemory
 from services.telegram_monitor import TelegramMonitoringService
 from routers.companion import ensure_webhook_indexes
@@ -132,6 +132,7 @@ api.include_router(observability.router)
 api.include_router(telegram.router)
 api.include_router(telegram_monitor.router)
 api.include_router(automation.router)
+api.include_router(resume.router)
 
 
 @api.get("/")

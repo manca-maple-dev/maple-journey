@@ -150,3 +150,61 @@ class AnnouncementIn(BaseModel):
     title: str
     body: str
     tone: str = "info"  # info | success | warning
+
+
+# --- Resume Maker ---
+class ResumeBullet(BaseModel):
+    text: str
+
+
+class ResumeExperience(BaseModel):
+    title: str
+    employer: str
+    location: str
+    start_date: str  # YYYY-MM
+    end_date: Optional[str] = None  # YYYY-MM or null (current)
+    bullets: List[ResumeBullet] = []
+
+
+class ResumeEducation(BaseModel):
+    credential: str  # Bachelor of Engineering, Diploma in Nursing, etc.
+    institution: str
+    country: str
+    graduation_year: Optional[str] = None  # YYYY
+    canadian_equivalent: Optional[str] = None  # "Equivalent to Canadian B.Eng."
+
+
+class ResumeLanguage(BaseModel):
+    language: str  # English, French, etc.
+    clb_level: Optional[str] = None  # CLB 7, CLB 8, etc. (for French/English)
+
+
+class ResumeDraft(BaseModel):
+    """Resume data structure — matches job-search expectations."""
+    full_name: str
+    email: str
+    phone: str
+    city: str
+    province: str
+    summary: str
+    experience: List[ResumeExperience] = []
+    education: List[ResumeEducation] = []
+    skills: List[str] = []
+    languages: List[ResumeLanguage] = []
+    template: str = "classic"  # classic | modern | compact
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class ResumeGenerateIn(BaseModel):
+    """Questionnaire for filling resume gaps."""
+    target_role: str
+    years_experience: int
+    key_achievements: List[str] = []
+    key_skills: List[str] = []
+    additional_info: Optional[str] = None
+
+
+class ResumeSaveIn(BaseModel):
+    """Save edited resume."""
+    data: ResumeDraft

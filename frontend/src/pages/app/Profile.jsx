@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   User, CalendarClock, Sparkles, CreditCard, ShieldCheck, SlidersHorizontal,
-  Check, Download, Trash2, ArrowUpRight, MessageCircle, Loader2,
+  Check, Download, Trash2, ArrowUpRight, MessageCircle, Loader2, FileText,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import ResumeMaker from "@/components/resume/ResumeMaker";
 
 const TIER_LABEL = { free: "Newcomer (Free)", plus: "Plus", family: "Family" };
 
@@ -690,6 +691,7 @@ function AppSettings() {
 const TABS = [
   { v: "details", label: "My Details", icon: User, el: <MyDetails /> },
   { v: "timeline", label: "Timeline", icon: CalendarClock, el: <Timeline /> },
+  { v: "resume", label: "Resume Maker", icon: FileText, el: <ResumeMaker /> },
   { v: "companion", label: "Companion", icon: Sparkles, el: <Companion /> },
   { v: "subscription", label: "Subscription", icon: CreditCard, el: <Subscription /> },
   { v: "privacy", label: "Data & Privacy", icon: ShieldCheck, el: <DataPrivacy /> },

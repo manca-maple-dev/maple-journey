@@ -15,6 +15,7 @@ export const FEATURES = [
   { key: "companion", label: "Ask Maple", icon: Sparkles, path: "/app/chat", always: true, desc: "Chat with your companion" },
   { key: "questionnaire", label: "Status & Deadlines", icon: ClipboardCheck, path: "/app/assessment", desc: "Your dates, deadlines & eligibility — cited" },
   { key: "jobs", label: "Jobs", icon: Briefcase, path: "/app/jobs", desc: "AI job matching" },
+  { key: "resume", label: "Resume Studio", icon: Sparkles, path: "/app/resume", always: true, desc: "Templates + Maple editing" },
   { key: "accessibilities", label: "Get Connected", icon: Smartphone, path: "/app/accessibilities", desc: "eSIM, banking & transit" },
   { key: "legal", label: "Legal & Government", icon: Scale, path: "/app/legal", desc: "Free & low-cost legal aid" },
   { key: "communities", label: "Communities", icon: MapPin, path: "/app/communities", desc: "Places & help near you" },

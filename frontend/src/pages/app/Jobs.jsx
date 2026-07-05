@@ -1,16 +1,19 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { MapPin, Bookmark, BookmarkCheck, ExternalLink, Info, Search, FileCheck2, Loader, RotateCw, Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { MapPin, Bookmark, BookmarkCheck, ExternalLink, Info, ArrowRight, Search, FileCheck2, Loader, RotateCw, Zap } from "lucide-react";
 import api from "@/lib/api";
 
 export default function Jobs() {
+  const navigate = useNavigate();
   const hasLoadedRef = useRef(false);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [hasProfile, setHasProfile] = useState(true);
   const [q, setQ] = useState("");
   const [location, setLocation] = useState("Toronto");
   const [jobType, setJobType] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("");
-  const [daysPosted, setDaysPosted] = useState(30);
+  const [daysPosted, setDaysPosted] = useState(7);
   const [salaryMin, setSalaryMin] = useState(null);
   const [salaryMax, setSalaryMax] = useState(null);
   const [savedJobs, setSavedJobs] = useState(new Set());
@@ -64,7 +67,7 @@ export default function Jobs() {
     setIsRefreshing(false);
   };
 
-  const toggle = (jobId) => {
+  const toggle = async (jobId) => {
     setSavedJobs((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(jobId)) {
@@ -95,13 +98,13 @@ export default function Jobs() {
       {/* Header */}
       <div>
         <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Jobs in Canada</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Live job listings matched to your profile. Updated in real time within a 25 km radius.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Live job listings matched to your profile. Updated real-time, within 25km radius.</p>
       </div>
 
       {/* Smart matching badge */}
       <div className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3.5 py-1.5 text-xs font-medium text-green-700 dark:bg-green-500/10">
         <Zap className="h-3.5 w-3.5" />
-        Intelligent matching active - refreshed on each search
+        Intelligent matching active — re-scrapes on search
       </div>
 
       {/* Discovery layer disclaimer */}
@@ -122,9 +125,13 @@ export default function Jobs() {
               <li>✓ Apply to 3-5 roles weekly for best results.</li>
             </ul>
             <div className="mt-3 flex flex-wrap gap-2">
-              <a href="https://www.jobbank.gc.ca/findajob/resources/write-good-resume" target="_blank" rel="noopener noreferrer" className="rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-brand-600 hover:border-brand-400">
-                Resume guide <ExternalLink className="ml-1 inline h-3 w-3" />
-              </a>
+              <button
+                type="button"
+                onClick={() => navigate("/app/resume")}
+                className="rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-brand-600 hover:border-brand-400"
+              >
+                Open Resume Studio <ArrowRight className="ml-1 inline h-3 w-3" />
+              </button>
             </div>
           </div>
         </div>
@@ -204,7 +211,6 @@ export default function Jobs() {
               <option value={1}>Today</option>
               <option value={7}>Last 7 days</option>
               <option value={30}>Last 30 days</option>
-              <option value={90}>Last 90 days</option>
             </select>
           </div>
         </div>
@@ -271,12 +277,6 @@ export default function Jobs() {
                     <span className="flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5" /> {job.location}
                     </span>
-                    {job.location_provider && job.location_provider !== job.location && (
-                      <>
-                        <span>·</span>
-                        <span className="truncate" title={job.location_provider}>source: {job.location_provider}</span>
-                      </>
-                    )}
                     {job.salary_max && (
                       <>
                         <span>·</span>
@@ -325,32 +325,7 @@ export default function Jobs() {
               ))
             ) : (
               <div className="col-span-full py-12 text-center">
-                <p className="text-muted-foreground">No jobs match these filters at the moment. Try adjusting your search criteria. We continuously ingest more accurate job data to improve results.</p>
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  <button
-                    onClick={() => {
-                      setDaysPosted(90);
-                      handleForceRefresh();
-                    }}
-                    className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-brand-600 hover:border-brand-400"
-                  >
-                    Expand to 90 days + refresh
-                  </button>
-                  <button
-                    onClick={() => {
-                      setQ("");
-                      setJobType("");
-                      setExperienceLevel("");
-                      setSalaryMin(null);
-                      setSalaryMax(null);
-                      setDaysPosted(30);
-                      handleForceRefresh();
-                    }}
-                    className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-brand-600 hover:border-brand-400"
-                  >
-                    Reset filters + refresh
-                  </button>
-                </div>
+                <p className="text-muted-foreground">No jobs found yet for these filters. Try adjusting your search. We are continuously feeding Maple with more accurate job data and this list will keep improving.</p>
               </div>
             )}
           </div>
