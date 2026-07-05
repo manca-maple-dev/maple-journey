@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Sparkles,
@@ -455,13 +455,13 @@ export default function ResumeStudio() {
     return map;
   }, []);
 
-  const isTemplateLocked = (id) => {
+  const isTemplateLocked = useCallback((id) => {
     if (serverAllowedTemplates) {
       return !serverAllowedTemplates.has(id);
     }
     const needed = templateMinTier[id] || "free";
     return TIER_RANK[normalizedTier] < TIER_RANK[needed];
-  };
+  }, [serverAllowedTemplates, templateMinTier, normalizedTier]);
 
   const isAdvancedToolsLocked =
     canUseAdvancedToolsFromFeature === null ? normalizedTier === "free" : !canUseAdvancedToolsFromFeature;
@@ -693,7 +693,7 @@ export default function ResumeStudio() {
     }
   };
 
-  const applyPreset = (presetId) => {
+  const applyPreset = useCallback((presetId) => {
     const preset = NEWCOMER_PRESETS[presetId];
     if (!preset) return;
     setActivePreset(presetId);
@@ -701,7 +701,7 @@ export default function ResumeStudio() {
     if (preset.recommendedTemplateId && !isTemplateLocked(preset.recommendedTemplateId)) {
       setTemplateId(preset.recommendedTemplateId);
     }
-  };
+  }, [isTemplateLocked]);
 
   const openUpgradeModal = (requiredTier, title, description) => {
     setUpgradeModal({
@@ -782,7 +782,7 @@ export default function ResumeStudio() {
     if (inferredPreset && inferredPreset !== activePreset) {
       applyPreset(inferredPreset);
     }
-  }, [location.search]);
+  }, [location.search, activePreset, applyPreset]);
 
   useEffect(() => {
     if (!isTemplateLocked(templateId)) return;
@@ -790,7 +790,7 @@ export default function ResumeStudio() {
     if (fallback) {
       setTemplateId(fallback.id);
     }
-  }, [normalizedTier]);
+  }, [templateId, isTemplateLocked]);
 
   useEffect(() => {
     const payload = {
