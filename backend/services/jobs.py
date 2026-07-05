@@ -8,6 +8,8 @@ Smart logic:
 """
 import aiohttp
 import logging
+import os
+import re
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 from core.db import db, clean
@@ -19,6 +21,14 @@ logger = logging.getLogger("jobs")
 # Job Bank API (official Canadian government source)
 JOBBANK_API_BASE = "https://www.jobbank.gc.ca/api/search"
 JOBBANK_SEARCH_URL = "https://api.jobbank.gc.ca/api/jobs"  # Alternative endpoint if needed
+
+# Jooble API (live jobs provider)
+JOOBLE_API_BASE = "https://jooble.org/api/"
+JOOBLE_API_KEY = (
+    os.getenv("JOOBLE_API_KEY")
+    or os.getenv("JOOBLE_KEY")
+    or os.getenv("JOBS_API_KEY")
+)
 
 # Distance matrix - approximate lat/long for Canadian cities (for 25km filtering)
 CANADIAN_CITIES = {
@@ -70,6 +80,76 @@ async def ensure_indexes() -> None:
     except PyMongoError as e:
         # Do not block app startup if index creation fails (e.g., low disk on DB).
         logger.warning(f"Jobs index initialization skipped: {e}")
+
+
+def _parse_salary_range(raw_salary: Optional[str]) -> Tuple[Optional[int], Optional[int]]:
+    """Extract numeric min/max salary hints from provider text when possible."""
+    if not raw_salary:
+        return None, None
+
+    numbers = [int(n.replace(",", "")) for n in re.findall(r"\d[\d,]{3,}", raw_salary)]
+    if not numbers:
+        return None, None
+    if len(numbers) == 1:
+        return numbers[0], None
+    return min(numbers), max(numbers)
+
+
+async def scrape_jobs_from_jooble(
+    query: str = "",
+    location: str = "Canada",
+    limit: int = 50,
+) -> List[Dict]:
+    """Fetch live jobs from Jooble API.
+
+    This call is executed at request time to keep results fresh for each user search.
+    """
+    if not JOOBLE_API_KEY:
+        return []
+
+    jobs: List[Dict] = []
+    payload = {
+        "keywords": query or "",
+        "location": location,
+        "page": 1,
+    }
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{JOOBLE_API_BASE}{JOOBLE_API_KEY}",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=12),
+            ) as resp:
+                if resp.status != 200:
+                    logger.warning(f"Jooble scrape failed with status {resp.status}")
+                    return []
+
+                data = await resp.json()
+                for item in data.get("jobs", [])[: min(limit, 100)]:
+                    salary_text = item.get("salary") or ""
+                    salary_min, salary_max = _parse_salary_range(salary_text)
+                    jobs.append(
+                        {
+                            "title": item.get("title", ""),
+                            "company": item.get("company", ""),
+                            "location": item.get("location", location),
+                            "salary_min": salary_min,
+                            "salary_max": salary_max,
+                            "salary_currency": "CAD",
+                            "job_type": item.get("type", ""),
+                            "description": item.get("snippet", ""),
+                            "external_url": item.get("link", ""),
+                            "source": "jooble",
+                            "date_posted": item.get("updated", datetime.utcnow().isoformat()),
+                            "experience_level": _infer_experience_level(item.get("snippet", "")),
+                            "industry": _infer_industry(item.get("title", "")),
+                        }
+                    )
+    except Exception as e:
+        logger.error(f"Jooble scrape failed: {e}")
+
+    return jobs
 
 
 async def scrape_jobs_from_jobbank(
@@ -149,20 +229,36 @@ async def cache_jobs(
     jobs_collection = db.jobs_cache
     now = datetime.utcnow()
     
-    # Add metadata to each job
+    # Upsert jobs keyed by source + URL + location so repeated live refreshes do not duplicate rows.
+    ops: List[UpdateOne] = []
     for job in jobs:
-        job.update({
-            "location": location,
+        normalized = {
+            **job,
+            "location": job.get("location") or location,
             "created_at": now,
-            "expires_at": now + timedelta(hours=24),  # Auto-cleanup after 24h
-            "view_count": 0,
-        })
-    
-    # Bulk insert/update
+            "expires_at": now + timedelta(hours=24),
+        }
+        ops.append(
+            UpdateOne(
+                {
+                    "source": normalized.get("source", "unknown"),
+                    "external_url": normalized.get("external_url", ""),
+                    "location": normalized["location"],
+                },
+                {
+                    "$set": normalized,
+                    "$setOnInsert": {"view_count": 0},
+                },
+                upsert=True,
+            )
+        )
+
+    # Bulk upsert
     try:
-        await jobs_collection.insert_many(jobs, ordered=False)
+        if ops:
+            await jobs_collection.bulk_write(ops, ordered=False)
     except Exception as e:
-        logger.warning(f"Some jobs already cached: {e}")
+        logger.warning(f"Job cache upsert warning: {e}")
 
 
 async def search_jobs(
@@ -212,14 +308,26 @@ async def search_jobs(
         force_refresh
     )
     
-    # Re-scrape if stale or forced
-    if is_stale:
-        logger.info(f"Re-scraping jobs for {location} (stale={is_stale}, force={force_refresh})")
-        scraped_jobs = await scrape_jobs_from_jobbank(
+    # Live scrape on each search when Jooble key is configured.
+    # Falls back to Job Bank when Jooble is unavailable.
+    scraped_jobs: List[Dict] = []
+    should_refresh = force_refresh or is_stale or bool(JOOBLE_API_KEY)
+    if should_refresh:
+        logger.info(
+            f"Refreshing live jobs for {location} "
+            f"(stale={is_stale}, force={force_refresh}, jooble={bool(JOOBLE_API_KEY)})"
+        )
+        scraped_jobs = await scrape_jobs_from_jooble(
             query=keywords or "",
             location=location,
-            limit=100  # Fetch more, user can filter
+            limit=100,
         )
+        if not scraped_jobs:
+            scraped_jobs = await scrape_jobs_from_jobbank(
+                query=keywords or "",
+                location=location,
+                limit=100,
+            )
         if scraped_jobs:
             await cache_jobs(user_id, scraped_jobs, location)
     

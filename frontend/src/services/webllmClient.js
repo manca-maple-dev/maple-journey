@@ -35,7 +35,6 @@ class WebLLMClient {
     }
 
     try {
-      console.log(`Initializing WebLLM on ${this.device}...`);
 
       // Dynamically import @mlc-ai/web-llm
       const { Model, ChatInterface } = await import('@mlc-ai/web-llm');
@@ -62,7 +61,6 @@ class WebLLMClient {
       this.modelReady = true;
       this.initialized = true;
 
-      console.log('✅ WebLLM initialized successfully');
       if (onProgress) onProgress({ status: 'ready', progress: 100 });
 
       return { status: 'ready', model: 'Phi-2', device: this.device };

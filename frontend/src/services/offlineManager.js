@@ -25,7 +25,6 @@ class OfflineManager {
       req.onerror = () => reject(req.error);
       req.onsuccess = () => {
         this.db = req.result;
-        console.log('✅ IndexedDB initialized');
         resolve();
       };
 
@@ -130,7 +129,7 @@ class OfflineManager {
   async syncQueuedMessages() {
     if (!this.db || !this.isOnline || this.syncQueue.length === 0) return;
 
-    console.log(`Syncing ${this.syncQueue.length} queued messages...`);
+
 
     for (const itemId of this.syncQueue) {
       try {
@@ -160,7 +159,6 @@ class OfflineManager {
     }
 
     this.syncQueue = [];
-    console.log('✅ Sync complete');
   }
 
   /**
@@ -227,7 +225,6 @@ class OfflineManager {
    */
   onOnline() {
     this.isOnline = true;
-    console.log('🌐 Back online, syncing queued messages...');
     this.syncQueuedMessages();
   }
 
@@ -236,7 +233,6 @@ class OfflineManager {
    */
   onOffline() {
     this.isOnline = false;
-    console.log('📴 Offline mode activated');
   }
 }
 
