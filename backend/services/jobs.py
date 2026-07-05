@@ -510,9 +510,13 @@ async def search_jobs(
         user_profile = await db.users.find_one({"_id": user_id})
     except Exception:
         user_profile = {}
+
+    cleaned_jobs: List[Dict] = []
     for job in jobs:
-        job = clean(job)
-        job["relevance_score"] = _score_job_relevance(job, user_profile or {})
+        cleaned_job = clean(job)
+        cleaned_job["relevance_score"] = _score_job_relevance(cleaned_job, user_profile or {})
+        cleaned_jobs.append(cleaned_job)
+    jobs = cleaned_jobs
     
     # Sort by relevance score
     jobs.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
