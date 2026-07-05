@@ -14,7 +14,7 @@ from core.security import get_current_user
 from services.telegram_monitor import TelegramMonitoringService
 
 logger = logging.getLogger("maplejourney.telegram.monitor.router")
-router = APIRouter(prefix="/api/telegram/monitor", tags=["telegram-monitoring"])
+router = APIRouter(prefix="/telegram/monitor", tags=["telegram-monitoring"])
 
 # Initialize monitoring service
 monitor = TelegramMonitoringService(db)

@@ -13,7 +13,7 @@ from core.security import get_current_user
 from services.telegram_collector import TelegramDataCollector
 
 logger = logging.getLogger("maplejourney.telegram.router")
-router = APIRouter(prefix="/api/telegram", tags=["telegram"])
+router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 # Get collector instance
 telegram_collector = TelegramDataCollector(
