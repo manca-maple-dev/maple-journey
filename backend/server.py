@@ -27,8 +27,9 @@ from services.update_pipeline import scheduler_loop
 from services.notifications_briefing import schedule_morning_notifications
 from services.research_agent import broadcast_research_insights
 from services.proactive_triggers import initialize_scheduler
-from routers import auth, wings, messaging, domain, chat, admin, payments, paystack, overview, webhooks, companion, companion_ops, jobs, community, messaging_channels, proactive_alerts, hybrid_llm, location_crisis, policy_feed, personalization, memory_layer, observability, benefits
+from routers import auth, wings, messaging, domain, chat, admin, payments, paystack, overview, webhooks, companion, companion_ops, jobs, community, messaging_channels, proactive_alerts, hybrid_llm, location_crisis, policy_feed, personalization, memory_layer, observability, benefits, telegram, telegram_monitor
 from services.companion_memory import CompanionMemory
+from services.telegram_monitor import TelegramMonitoringService
 from routers.companion import ensure_webhook_indexes
 
 logging.basicConfig(level=logging.INFO)
@@ -95,6 +96,8 @@ api.include_router(policy_feed.router)
 api.include_router(personalization.router)
 api.include_router(memory_layer.router)
 api.include_router(observability.router)
+api.include_router(telegram.router)
+api.include_router(telegram_monitor.router)
 
 
 @api.get("/")
@@ -206,6 +209,36 @@ async def _startup():
 
         _research_task = asyncio.create_task(broadcast_research_insights())
         logger.info("Research insights broadcaster started")
+
+        # ============================================================================
+        # TELEGRAM BOT INITIALIZATION
+        # ============================================================================
+        telegram_bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+        if telegram_bot_token:
+            try:
+                # Initialize Telegram collector
+                telegram.telegram_collector.bot_token = telegram_bot_token
+                app.telegram_app = await telegram.telegram_collector.initialize_app()
+                
+                # Start bot polling
+                asyncio.create_task(app.telegram_app.run_polling())
+                logger.info("✅ Telegram bot initialized and polling started")
+                
+                # Initialize monitoring service
+                telegram_monitor_service = TelegramMonitoringService(db)
+                asyncio.create_task(telegram_monitor_service.start_monitoring(interval_seconds=60))
+                logger.info("✅ Telegram monitoring service started (60-second intervals)")
+                
+                # Store for shutdown cleanup
+                app.state.telegram_app = app.telegram_app
+                app.state.telegram_monitor_service = telegram_monitor_service
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize Telegram bot: {e}", exc_info=True)
+        else:
+            logger.info("⚠️  TELEGRAM_BOT_TOKEN not configured. Telegram bot disabled.")
+            logger.info("    To enable: Set TELEGRAM_BOT_TOKEN environment variable")
+
     except Exception as e:
         logger.warning(f"Startup warning: {e}. Service will start in limited mode.")
         logger.info("Service started in limited mode. Add required env vars for full functionality.")
@@ -216,6 +249,15 @@ async def _shutdown():
     global _research_task
     global _notifications_task
     logger.info("Shutting down...")
+    
+    # Cleanup Telegram bot
+    if hasattr(app.state, 'telegram_app'):
+        try:
+            await app.state.telegram_app.stop()
+            logger.info("✅ Telegram bot stopped")
+        except Exception as e:
+            logger.warning(f"Error stopping Telegram bot: {e}")
+    
     if _scheduler_stop_event is not None:
         _scheduler_stop_event.set()
     if _scheduler_task is not None:
