@@ -73,18 +73,35 @@ async def _openai_chat_response(system_prompt: str, user_message: str) -> str:
         from openai import AsyncOpenAI
 
         client = AsyncOpenAI(api_key=openai_key)
-        model = _env_value("OPENAI_CHAT_MODEL") or "gpt-4.1"
-        resp = await client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            temperature=TEMPERATURE,
-            max_tokens=MAX_TOKENS,
-            top_p=TOP_P,
-        )
-        return (resp.choices[0].message.content or "").strip()
+        preferred = _env_value("OPENAI_CHAT_MODEL") or "gpt-4.1"
+        candidates = []
+        for m in [preferred, "gpt-4o-mini", "gpt-4o"]:
+            if m not in candidates:
+                candidates.append(m)
+        last_error = None
+        for model in candidates:
+            try:
+                resp = await client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message},
+                    ],
+                    temperature=TEMPERATURE,
+                    max_tokens=MAX_TOKENS,
+                    top_p=TOP_P,
+                )
+                text = (resp.choices[0].message.content or "").strip()
+                if text:
+                    return text
+            except Exception as model_err:
+                last_error = model_err
+                logger.warning("openai model failed: %s", model)
+                continue
+
+        if last_error:
+            logger.exception("openai fallback failed across all models", exc_info=last_error)
+        return ""
     except Exception:
         logger.exception("openai fallback failed")
         return ""
