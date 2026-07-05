@@ -1,0 +1,36 @@
+{
+  "name": "MapleJourney — Newcomers in Canada Wingman",
+  "short_name": "MapleJourney",
+  "description": "Your Canadian journey, guided by AI. Navigate visas, PR, jobs, benefits and legal help with Maple.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#0056D2",
+  "icons": [
+    {
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "screenshots": [
+    {
+      "src": "/email-logo.png",
+      "sizes": "540x720",
+      "type": "image/png"
+    }
+  ]
+}
