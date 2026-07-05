@@ -29,7 +29,6 @@ from pydantic import BaseModel
 
 from core.db import db
 from core.config import SYSTEM_PROMPT, SOVEREIGN_SYSTEM_PROMPT
-from services.rag_v2 import rag_search_v2
 from services.companion_memory import CompanionMemory
 from services.citation_validator import CitationValidator
 from services.twilio_service import send_whatsapp, send_imessage, send_message_by_channel
@@ -194,6 +193,8 @@ async def _handle_companion_message(
                 context_prompt += f"User (turn {ctx['turn']}): {ctx['query']}\nMaple: {ctx['response']}\n\n"
         
         # 4. Retrieve documents + get response
+        from services.rag_v2 import rag_search_v2
+
         retrieved_docs, score = await rag_search_v2(
             query,
             {

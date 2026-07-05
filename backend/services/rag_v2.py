@@ -27,10 +27,17 @@ import httpx
 
 logger = logging.getLogger("maplejourney.rag_v2")
 
-# ---------------------------------------------------------------------------
-# Initialization
-# ---------------------------------------------------------------------------
-openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+_openai_client: AsyncOpenAI | None = None
+
+
+def _get_openai_client() -> AsyncOpenAI:
+    global _openai_client
+    if _openai_client is None:
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY is not configured")
+        _openai_client = AsyncOpenAI(api_key=api_key)
+    return _openai_client
 
 # PostgreSQL/Supabase pgvector connection (imported from db.py)
 # Assumes: environment variable SUPABASE_URL, SUPABASE_KEY set
@@ -85,7 +92,7 @@ async def embed_text(text: str) -> List[float]:
     Cost: $0.02/1M tokens
     """
     try:
-        response = await openai_client.embeddings.create(
+        response = await _get_openai_client().embeddings.create(
             model=EMBEDDING_MODEL,
             input=text,
         )
@@ -93,6 +100,9 @@ async def embed_text(text: str) -> List[float]:
         assert len(embedding) == EMBEDDING_DIM
         return embedding
     except Exception as e:
+        if "OPENAI_API_KEY is not configured" in str(e):
+            logger.warning("OpenAI embeddings disabled because OPENAI_API_KEY is missing")
+            return [0.0] * EMBEDDING_DIM
         logger.error("Embedding failed: %s", str(e))
         raise
 
