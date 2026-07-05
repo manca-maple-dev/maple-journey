@@ -403,6 +403,7 @@ export default function ResumeMaker() {
         setQuota(data);
       } catch (e) {
         console.error("Failed to fetch quota:", e);
+        setQuota({ tier: "free", limit: null, remaining: null, message: "Resume tools are available." });
       }
     })();
   }, []);

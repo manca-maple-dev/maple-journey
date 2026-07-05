@@ -354,17 +354,17 @@ export default function MapleHome() {
         </section>
       )}
 
-      {/* Status & Deadlines — Show user's key dates and Resume CTA */}
+      {/* Resume section — Show user's key dates and open the builder */}
       {profile && (
         <section className="rounded-2xl border-2 border-maple/30 bg-gradient-to-br from-maple/5 to-maple/10 p-6 dark:from-maple-900/20 dark:to-maple-900/30" data-testid="status-deadlines">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-semibold flex items-center gap-2">
                 <Clock className="h-5 w-5 text-maple" />
-                Status & Deadlines
+                Get My Resumes
               </h2>
               <p className="text-xs text-muted-foreground mt-1">
-                Key dates in your immigration journey. Keep these updated for accurate reminders.
+                Use your profile and key dates to build a stronger resume.
               </p>
             </div>
           </div>
@@ -411,10 +411,10 @@ export default function MapleHome() {
             className="w-full rounded-xl border-2 border-maple bg-gradient-to-r from-maple to-maple/80 hover:from-maple/90 hover:to-maple/70 text-white px-4 py-3 font-semibold transition-all shadow-sm hover:shadow-md"
           >
             <FileText className="mr-2 inline h-4 w-4" />
-            Get Your Resume Now
+            Get My Resumes
           </button>
           <p className="text-xs text-muted-foreground mt-2 text-center">
-            Use your profile info + deadlines to create a professional resume for job applications
+            Use your profile info and deadlines to create a professional resume for job applications
           </p>
         </section>
       )}

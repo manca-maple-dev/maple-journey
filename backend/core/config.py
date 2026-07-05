@@ -14,6 +14,7 @@ def get_jwt_secret() -> str:
 FEATURE_KEYS = [
     "questionnaire",
     "jobs",
+    "resume",
     "accessibilities",
     "legal",
     "communities",

@@ -33,7 +33,7 @@ const LegalDisclaimer = lazy(() => import("@/pages/marketing/LegalDisclaimer"));
 const MapleHome = lazy(() => import("@/pages/app/MapleHome"));
 const Questionnaire = lazy(() => import("@/pages/app/Questionnaire"));
 const Jobs = lazy(() => import("@/pages/app/Jobs"));
-const ResumePage = lazy(() => import("@/pages/app/ResumePage"));
+const ResumeStudio = lazy(() => import("@/pages/app/ResumeStudio"));
 const Accessibilities = lazy(() => import("@/pages/app/Accessibilities"));
 const LegalHelp = lazy(() => import("@/pages/app/LegalHelp"));
 const Communities = lazy(() => import("@/pages/app/Communities"));
@@ -96,9 +96,9 @@ function App() {
                   <Route path="plans" element={<PlanSelection />} />
                   <Route path="plans/success" element={<PlanSuccess />} />
                   <Route path="chat" element={<MapleChat />} />
-                  <Route path="assessment" element={<FeatureGate feature="questionnaire"><Questionnaire /></FeatureGate>} />
+                  <Route path="assessment" element={<FeatureGate feature="questionnaire"><ResumeStudio /></FeatureGate>} />
                   <Route path="jobs" element={<FeatureGate feature="jobs"><Jobs /></FeatureGate>} />
-                  <Route path="resume" element={<ResumePage />} />
+                  <Route path="resume" element={<FeatureGate feature="questionnaire"><ResumeStudio /></FeatureGate>} />
                   <Route path="accessibilities" element={<FeatureGate feature="accessibilities"><Accessibilities /></FeatureGate>} />
                   <Route path="legal" element={<FeatureGate feature="legal"><LegalHelp /></FeatureGate>} />
                   <Route path="communities" element={<FeatureGate feature="communities"><Communities /></FeatureGate>} />
