@@ -580,12 +580,29 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
             break
     common_headers["X-Maple-Provider"] = used_provider
     if not answer:
-        answer = grounded_fallback_response(sanitized_message, rag_context)
+        answer = grounded_fallback_response(reason="model-unavailable")
 
-    answer, citation_ok, citation_reason = enforce_citation_policy(answer)
+    # Prefer keeping a strong answer by attaching verified citations from retrieval context
+    # before policy enforcement; this avoids unnecessary safe-fallback responses.
+    answer = attach_verified_citations_if_missing(answer, rag_context)
+
+    # Backward-safe policy invocation: production may still run an older rag module
+    # signature, so guard against argument mismatch and result-shape differences.
+    try:
+        policy_result = enforce_citation_policy(answer)
+    except TypeError:
+        policy_result = enforce_citation_policy(answer, rag_context)
+
+    if isinstance(policy_result, tuple):
+        answer, citation_ok, citation_reason = policy_result
+    else:
+        answer = policy_result or answer
+        citation_ok, citation_reason = True, "legacy-policy"
+
     if not citation_ok:
-        answer = attach_verified_citations_if_missing(answer, rag_context)
-        answer, citation_ok, citation_reason = enforce_citation_policy(answer)
+        # Final recovery pass with explicit reason to keep UX deterministic.
+        answer = grounded_fallback_response(reason=citation_reason or "citation-policy")
+
     answer = filter_response_for_leaks(answer)
 
     if not answer.strip():
