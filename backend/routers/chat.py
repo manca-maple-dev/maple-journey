@@ -473,14 +473,6 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
     answer = ""
     used_provider = ""
 
-    instruction_sources = [
-        "profile" if profile_summary(user) else "",
-        "memory" if memory_context else "",
-        "community" if community_context else "",
-        "rag" if rag_context else "",
-        "wings" if _wings_instruction(user) else "",
-        "custom" if custom_instructions else "",
-    ]
     common_headers = {
         "Cache-Control": "no-cache",
         "X-Accel-Buffering": "no",
@@ -488,8 +480,6 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
         "X-Maple-Credits": str(credit_balance),
         "X-Maple-Cost": str(cost),
         "X-Maple-Complexity": complexity,
-        "X-Maple-Instruction-Sources": ",".join([item for item in instruction_sources if item]),
-        "X-Maple-Provider": used_provider,
     }
 
     # Debit credits before processing (atomic — wallet already checked above)
@@ -538,6 +528,15 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
     custom_instructions = _custom_system_instructions()
     if custom_instructions:
         system += "\n\nOPERATOR CUSTOM INSTRUCTIONS:\n" + custom_instructions
+    instruction_sources = [
+        "profile" if profile_summary(user) else "",
+        "memory" if memory_context else "",
+        "community" if community_context else "",
+        "rag" if rag_context else "",
+        "wings" if _wings_instruction(user) else "",
+        "custom" if custom_instructions else "",
+    ]
+    common_headers["X-Maple-Instruction-Sources"] = ",".join([item for item in instruction_sources if item])
     system += _quality_directive(complexity, tier)
     system += conversation_language_instruction(user)
     system += (
@@ -579,6 +578,7 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
         if answer:
             used_provider = provider
             break
+    common_headers["X-Maple-Provider"] = used_provider
     if not answer:
         answer = grounded_fallback_response(sanitized_message, rag_context)
 
