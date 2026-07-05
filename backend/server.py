@@ -45,6 +45,7 @@ async def _init_telegram_services() -> None:
     """Initialize Telegram bot + monitoring independently of optional startup tasks."""
     telegram_bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
     enable_polling = os.environ.get("TELEGRAM_START_POLLING", "false").strip().lower() in {"1", "true", "yes"}
+    enable_monitoring = os.environ.get("TELEGRAM_START_MONITORING", "false").strip().lower() in {"1", "true", "yes"}
     if telegram_bot_token:
         try:
             # Initialize Telegram collector
@@ -59,15 +60,16 @@ async def _init_telegram_services() -> None:
             else:
                 logger.info("✅ Telegram bot initialized without polling")
 
-            # Initialize monitoring service
-            from core.db import db
-            telegram_monitor_service = TelegramMonitoringService(db)
-            asyncio.create_task(telegram_monitor_service.start_monitoring(interval_seconds=60))
-            logger.info("✅ Telegram monitoring service started (60-second intervals)")
+            # Initialize monitoring only when explicitly enabled.
+            if enable_monitoring:
+                from core.db import db
+                telegram_monitor_service = TelegramMonitoringService(db)
+                asyncio.create_task(telegram_monitor_service.start_monitoring(interval_seconds=60))
+                logger.info("✅ Telegram monitoring service started (60-second intervals)")
+                app.state.telegram_monitor_service = telegram_monitor_service
 
             # Store for shutdown cleanup
             app.state.telegram_app = app.telegram_app
-            app.state.telegram_monitor_service = telegram_monitor_service
 
         except Exception as e:
             logger.error(f"❌ Failed to initialize Telegram bot: {e}", exc_info=True)
