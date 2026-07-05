@@ -369,7 +369,21 @@ async def search_jobs(
     
     # Count total
     total = await jobs_collection.count_documents(filters)
-    
+
+    # If a strict recency window yields no results, widen once to keep UX non-empty.
+    if total == 0 and days_posted and days_posted <= 7:
+        relaxed_filters = {**filters}
+        relaxed_cutoff = now - timedelta(days=30)
+        relaxed_filters["date_posted"] = {"$gte": relaxed_cutoff.isoformat()}
+        relaxed_total = await jobs_collection.count_documents(relaxed_filters)
+        if relaxed_total > 0:
+            filters = relaxed_filters
+            total = relaxed_total
+            logger.info(
+                f"No jobs found in {days_posted} days for {location}; "
+                "expanded window to 30 days"
+            )
+
     # Fetch and score
     cursor = jobs_collection.find(filters).sort("date_posted", -1).limit(limit)
     jobs = await cursor.to_list(limit)

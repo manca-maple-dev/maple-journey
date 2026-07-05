@@ -35,7 +35,7 @@ async def search_jobs_endpoint(
     experience_level: Optional[str] = Query(None, description="entry, mid, senior"),
     salary_min: Optional[int] = Query(None, description="Minimum salary"),
     salary_max: Optional[int] = Query(None, description="Maximum salary"),
-    days_posted: Optional[int] = Query(7, description="Jobs posted in last N days"),
+    days_posted: Optional[int] = Query(30, description="Jobs posted in last N days"),
     limit: int = Query(20, ge=1, le=100, description="Max results"),
     refresh: bool = Query(False, description="Force re-scrape (bypass 30min cache)"),
 ):

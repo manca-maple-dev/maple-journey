@@ -10,7 +10,7 @@ export default function Jobs() {
   const [location, setLocation] = useState("Toronto");
   const [jobType, setJobType] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("");
-  const [daysPosted, setDaysPosted] = useState(7);
+  const [daysPosted, setDaysPosted] = useState(30);
   const [salaryMin, setSalaryMin] = useState(null);
   const [salaryMax, setSalaryMax] = useState(null);
   const [savedJobs, setSavedJobs] = useState(new Set());
@@ -204,6 +204,7 @@ export default function Jobs() {
               <option value={1}>Today</option>
               <option value={7}>Last 7 days</option>
               <option value={30}>Last 30 days</option>
+              <option value={90}>Last 90 days</option>
             </select>
           </div>
         </div>
@@ -270,6 +271,12 @@ export default function Jobs() {
                     <span className="flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5" /> {job.location}
                     </span>
+                    {job.location_provider && job.location_provider !== job.location && (
+                      <>
+                        <span>·</span>
+                        <span className="truncate" title={job.location_provider}>source: {job.location_provider}</span>
+                      </>
+                    )}
                     {job.salary_max && (
                       <>
                         <span>·</span>
@@ -319,6 +326,31 @@ export default function Jobs() {
             ) : (
               <div className="col-span-full py-12 text-center">
                 <p className="text-muted-foreground">No jobs match these filters at the moment. Try adjusting your search criteria. We continuously ingest more accurate job data to improve results.</p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  <button
+                    onClick={() => {
+                      setDaysPosted(90);
+                      handleForceRefresh();
+                    }}
+                    className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-brand-600 hover:border-brand-400"
+                  >
+                    Expand to 90 days + refresh
+                  </button>
+                  <button
+                    onClick={() => {
+                      setQ("");
+                      setJobType("");
+                      setExperienceLevel("");
+                      setSalaryMin(null);
+                      setSalaryMax(null);
+                      setDaysPosted(30);
+                      handleForceRefresh();
+                    }}
+                    className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-brand-600 hover:border-brand-400"
+                  >
+                    Reset filters + refresh
+                  </button>
+                </div>
               </div>
             )}
           </div>
