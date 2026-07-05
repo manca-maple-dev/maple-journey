@@ -40,6 +40,36 @@ _scheduler_stop_event: asyncio.Event | None = None
 _notifications_task: asyncio.Task | None = None
 _research_task: asyncio.Task | None = None
 
+
+async def _init_telegram_services() -> None:
+    """Initialize Telegram bot + monitoring independently of optional startup tasks."""
+    telegram_bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    if telegram_bot_token:
+        try:
+            # Initialize Telegram collector
+            telegram.telegram_collector.bot_token = telegram_bot_token
+            app.telegram_app = await telegram.telegram_collector.initialize_app()
+
+            # Start bot polling
+            asyncio.create_task(app.telegram_app.run_polling())
+            logger.info("✅ Telegram bot initialized and polling started")
+
+            # Initialize monitoring service
+            from core.db import db
+            telegram_monitor_service = TelegramMonitoringService(db)
+            asyncio.create_task(telegram_monitor_service.start_monitoring(interval_seconds=60))
+            logger.info("✅ Telegram monitoring service started (60-second intervals)")
+
+            # Store for shutdown cleanup
+            app.state.telegram_app = app.telegram_app
+            app.state.telegram_monitor_service = telegram_monitor_service
+
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Telegram bot: {e}", exc_info=True)
+    else:
+        logger.info("⚠️  TELEGRAM_BOT_TOKEN not configured. Telegram bot disabled.")
+        logger.info("    To enable: Set TELEGRAM_BOT_TOKEN environment variable")
+
 REQUIRED_ENV_VARS = [
     "MONGO_URL",
     "DB_NAME",
@@ -210,38 +240,12 @@ async def _startup():
         _research_task = asyncio.create_task(broadcast_research_insights())
         logger.info("Research insights broadcaster started")
 
-        # ============================================================================
-        # TELEGRAM BOT INITIALIZATION
-        # ============================================================================
-        telegram_bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-        if telegram_bot_token:
-            try:
-                # Initialize Telegram collector
-                telegram.telegram_collector.bot_token = telegram_bot_token
-                app.telegram_app = await telegram.telegram_collector.initialize_app()
-                
-                # Start bot polling
-                asyncio.create_task(app.telegram_app.run_polling())
-                logger.info("✅ Telegram bot initialized and polling started")
-                
-                # Initialize monitoring service
-                telegram_monitor_service = TelegramMonitoringService(db)
-                asyncio.create_task(telegram_monitor_service.start_monitoring(interval_seconds=60))
-                logger.info("✅ Telegram monitoring service started (60-second intervals)")
-                
-                # Store for shutdown cleanup
-                app.state.telegram_app = app.telegram_app
-                app.state.telegram_monitor_service = telegram_monitor_service
-                
-            except Exception as e:
-                logger.error(f"❌ Failed to initialize Telegram bot: {e}", exc_info=True)
-        else:
-            logger.info("⚠️  TELEGRAM_BOT_TOKEN not configured. Telegram bot disabled.")
-            logger.info("    To enable: Set TELEGRAM_BOT_TOKEN environment variable")
-
     except Exception as e:
         logger.warning(f"Startup warning: {e}. Service will start in limited mode.")
         logger.info("Service started in limited mode. Add required env vars for full functionality.")
+    finally:
+        # Telegram should still come up even when optional startup tasks fail.
+        await _init_telegram_services()
 
 
 @app.on_event("shutdown")
