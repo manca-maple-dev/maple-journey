@@ -129,11 +129,16 @@ async def scrape_jobs_from_jooble(
                 for item in data.get("jobs", [])[: min(limit, 100)]:
                     salary_text = item.get("salary") or ""
                     salary_min, salary_max = _parse_salary_range(salary_text)
+                    provider_location = item.get("location", "")
                     jobs.append(
                         {
                             "title": item.get("title", ""),
                             "company": item.get("company", ""),
-                            "location": item.get("location", location),
+                            # Keep cache key aligned with the user's requested location.
+                            # Jooble may return similarly named places in other countries
+                            # (e.g., "Toronto, OH") which would otherwise be filtered out.
+                            "location": location,
+                            "location_provider": provider_location,
                             "salary_min": salary_min,
                             "salary_max": salary_max,
                             "salary_currency": "CAD",
