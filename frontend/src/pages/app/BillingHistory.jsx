@@ -1,5 +1,6 @@
-import { useNavigate } from "react-router-dom";
-import { CreditCard, Check, Clock, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { CreditCard, Check, Clock, AlertCircle, Sparkles, MessageCircle, ShieldCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,10 @@ const STATUS_CONFIG = {
 
 export default function BillingHistory() {
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const { user } = useAuth();
+  const upgraded = params.get("upgraded") === "1";
+  const [activeTab, setActiveTab] = useState(upgraded ? "subscriptions" : "invoices");
 
   const { data: txns = [], isLoading } = useQuery({
     queryKey: ["billing"],
@@ -56,8 +60,55 @@ export default function BillingHistory() {
         </p>
       </div>
 
+      {upgraded && (
+        <div className="rounded-3xl border border-green-200 bg-gradient-to-br from-green-50 via-white to-brand-50 p-5 text-green-900 shadow-sm dark:border-green-900 dark:bg-green-950/30 dark:text-green-100">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-green-600 text-white shadow-sm">
+                <Check className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-green-700 dark:text-green-300">
+                  <Sparkles className="h-4 w-4" /> Upgrade complete
+                </p>
+                <p className="mt-1 text-xl font-semibold">Your MapleJourney plan is active now.</p>
+                <p className="mt-1 text-sm text-green-800/80 dark:text-green-100/80">
+                  Unlimited Maple chats, deeper guidance, and priority support are ready right away.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setParams({}, { replace: true })}
+              className="text-sm underline underline-offset-2 lg:ml-4"
+            >
+              Dismiss
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-green-200/70 bg-white/80 p-3 dark:border-green-900 dark:bg-black/10">
+              <p className="flex items-center gap-2 text-sm font-medium"><MessageCircle className="h-4 w-4 text-brand-500" /> Unlimited chats</p>
+              <p className="mt-1 text-xs text-muted-foreground">Ask Maple as much as you need without the free-tier cap.</p>
+            </div>
+            <div className="rounded-2xl border border-green-200/70 bg-white/80 p-3 dark:border-green-900 dark:bg-black/10">
+              <p className="flex items-center gap-2 text-sm font-medium"><Sparkles className="h-4 w-4 text-brand-500" /> Profile-aware guidance</p>
+              <p className="mt-1 text-xs text-muted-foreground">Sharper answers and more useful next-step recommendations.</p>
+            </div>
+            <div className="rounded-2xl border border-green-200/70 bg-white/80 p-3 dark:border-green-900 dark:bg-black/10">
+              <p className="flex items-center gap-2 text-sm font-medium"><ShieldCheck className="h-4 w-4 text-brand-500" /> Subscription confirmed</p>
+              <p className="mt-1 text-xs text-muted-foreground">Your billing record and active plan are shown below.</p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => navigate("/app/chat")}>Start using Plus</Button>
+            <Button size="sm" variant="outline" onClick={() => setActiveTab("subscriptions")}>View active plan</Button>
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
-      <Tabs defaultValue="invoices" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>

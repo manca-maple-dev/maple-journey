@@ -32,7 +32,7 @@ export default function PlanSelection() {
         await refreshUser();
         setVerifying(false);
         toast.success("You're upgraded — welcome to unlimited Maple! 🍁");
-        navigate("/app", { replace: true });
+        navigate("/app/billing?upgraded=1", { replace: true });
         return;
       }
       if (data.status === "expired") { setVerifying(false); toast.error("That checkout expired. Please try again."); return; }
