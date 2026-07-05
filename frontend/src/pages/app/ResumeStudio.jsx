@@ -186,6 +186,79 @@ const TEMPLATE_VISUALS = {
   velocity: { titleSize: "text-[1.9rem]", sectionTrack: "tracking-[0.16em]", contentGap: "space-y-5", sectionLabelSize: "text-xs" },
 };
 
+const NEWCOMER_PRESETS = {
+  office: {
+    id: "office",
+    label: "Office / Admin",
+    resume: {
+      name: "Your Name",
+      headline: "Newcomer Professional in Canada | Customer Service & Office Operations",
+      email: "you@email.com",
+      phone: "+1 647 000 0000",
+      location: "Toronto, ON",
+      summary:
+        "Detail-oriented newcomer professional with customer service and office operations experience. Strong at coordinating schedules, supporting teams, and resolving client concerns with professionalism, empathy, and clear communication.",
+      skills: "Customer Service, Office Administration, POS Systems, Scheduling, Conflict Resolution, Team Collaboration, English, French",
+      education: "Diploma in Business Administration, 2023 | Toronto, ON",
+      experience: [
+        {
+          title: "Customer Service Specialist",
+          company: "Northside Retail",
+          period: "2024 - Present",
+          bullets: [
+            "Improved customer satisfaction by 18% by reducing response times and resolving issues at first contact.",
+            "Handled 80+ customer interactions per shift while maintaining service quality, empathy, and accuracy.",
+          ],
+        },
+        {
+          title: "Operations Coordinator Assistant",
+          company: "Bright Logistics",
+          period: "2022 - 2024",
+          bullets: [
+            "Supported shipment coordination and reduced recurring delays by 22% through stronger daily process checks.",
+            "Maintained accurate records across inventory and delivery systems to improve reporting reliability.",
+          ],
+        },
+      ],
+    },
+  },
+  healthcare: {
+    id: "healthcare",
+    label: "Healthcare Support",
+    resume: {
+      name: "Your Name",
+      headline: "Newcomer Professional in Canada | Healthcare Support & Patient Service",
+      email: "you@email.com",
+      phone: "+1 647 000 0000",
+      location: "Toronto, ON",
+      summary:
+        "Compassionate healthcare support professional with strong patient service, communication, and care-coordination skills. Committed to safe, respectful care delivery while supporting clinical teams in busy healthcare environments.",
+      skills: "Patient Support, Appointment Coordination, Medical Documentation, Communication, Team Collaboration, English, French",
+      education: "Healthcare Administration Certificate, 2023 | Toronto, ON",
+      experience: [
+        {
+          title: "Patient Service Assistant",
+          company: "Community Health Centre",
+          period: "2024 - Present",
+          bullets: [
+            "Supported patient intake and appointment flow, improving check-in efficiency by 20%.",
+            "Responded to 60+ daily patient inquiries with clear communication and culturally sensitive support.",
+          ],
+        },
+        {
+          title: "Clinic Operations Assistant",
+          company: "WellCare Medical Group",
+          period: "2022 - 2024",
+          bullets: [
+            "Maintained accurate patient records and reduced documentation errors through stronger verification checks.",
+            "Coordinated schedules and follow-ups to help the care team improve continuity of service.",
+          ],
+        },
+      ],
+    },
+  },
+};
+
 function detectResumeDomain(headline = "", skills = "") {
   const text = `${headline} ${skills}`.toLowerCase();
   if (/(developer|engineer|software|data|cloud|devops|python|react|javascript|it)/.test(text)) return "tech";
@@ -252,38 +325,10 @@ export default function ResumeStudio() {
   const [showQualityPreview, setShowQualityPreview] = useState(false);
   const [printSafe, setPrintSafe] = useState(true);
   const [previewMode, setPreviewMode] = useState("normal"); // normal or fullscreen
+  const [showEmptyTemplate, setShowEmptyTemplate] = useState(false); // show template structure without content
+  const [activePreset, setActivePreset] = useState("office");
 
-  const [resume, setResume] = useState({
-    name: "Your Name",
-    headline: "Newcomer professional in Canada | Customer Service | Operations",
-    email: "you@email.com",
-    phone: "+1 647 000 0000",
-    location: "Toronto, ON",
-    summary:
-      "Results-driven professional with newcomer resilience, strong communication, and a proven ability to improve service quality and team efficiency in fast-paced environments.",
-    skills: "Customer Support, POS Systems, Scheduling, Team Collaboration, English, French",
-    education: "Diploma in Business Administration, 2023",
-    experience: [
-      {
-        title: "Customer Service Associate",
-        company: "Northside Retail",
-        period: "2024 - Present",
-        bullets: [
-          "Improved customer satisfaction by 18% by reducing response times and resolving issues on first contact.",
-          "Handled 80+ customer interactions per shift while maintaining high quality and empathy.",
-        ],
-      },
-      {
-        title: "Operations Assistant",
-        company: "Bright Logistics",
-        period: "2022 - 2024",
-        bullets: [
-          "Supported shipment coordination and cut recurring delays by 22% through better daily checklists.",
-          "Maintained accurate records across inventory and delivery systems.",
-        ],
-      },
-    ],
-  });
+  const [resume, setResume] = useState(NEWCOMER_PRESETS.office.resume);
 
   // Group templates by category
   const templatesByCategory = useMemo(() => {
@@ -522,13 +567,22 @@ export default function ResumeStudio() {
     }
   };
 
+  const applyPreset = (presetId) => {
+    const preset = NEWCOMER_PRESETS[presetId];
+    if (!preset) return;
+    setActivePreset(presetId);
+    setResume(preset.resume);
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-5" data-testid="resume-studio-page">
-      <section className="overflow-hidden rounded-3xl border border-border bg-card">
-        <div className="bg-gradient-to-r from-brand-700 via-brand-600 to-maple px-6 py-6 text-white sm:px-8">
+      <section className="relative overflow-hidden rounded-3xl border border-border bg-card">
+        <div className="pointer-events-none absolute -left-12 -top-16 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
+        <div className="pointer-events-none absolute right-0 top-10 h-32 w-32 rounded-full bg-cyan-300/20 blur-2xl" />
+        <div className="bg-gradient-to-br from-brand-800 via-brand-700 to-maple px-6 py-7 text-white sm:px-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+              <p className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
                 <Sparkles className="h-3.5 w-3.5" /> Maple Resume Studio
               </p>
               <h1 className="mt-3 font-display text-2xl font-bold sm:text-3xl">Professional resume builder for Canada</h1>
@@ -536,7 +590,7 @@ export default function ResumeStudio() {
                 Choose from 10 beautifully formatted templates, customize every detail in real-time, and use Maple AI to strengthen your impact. Built specifically for Canadian hiring standards and ATS compatibility.
               </p>
             </div>
-            <div className="min-w-[220px] rounded-2xl border border-white/20 bg-white/10 p-4">
+            <div className="min-w-[220px] rounded-2xl border border-white/25 bg-white/10 p-4 shadow-lg backdrop-blur-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-white/80">ATS Readiness Score</p>
               <p className="mt-2 text-3xl font-bold">{completeness}%</p>
               <p className="text-xs text-white/80">Aim for 85%+ before applying.</p>
@@ -547,7 +601,7 @@ export default function ResumeStudio() {
 
       <section className="grid gap-5 lg:grid-cols-[1.05fr,0.95fr]">
         <div className="space-y-5">
-          <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <LayoutTemplate className="h-4 w-4 text-brand-600" />
@@ -571,6 +625,29 @@ export default function ResumeStudio() {
               </div>
             </div>
 
+            <div className="mb-4 rounded-xl border border-border bg-background p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Starter profile</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {Object.values(NEWCOMER_PRESETS).map((preset) => {
+                  const active = preset.id === activePreset;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyPreset(preset.id)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                        active
+                          ? "bg-brand-600 text-white"
+                          : "bg-secondary text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {viewMode === "grid" ? (
               <div className="space-y-6">
                 {Object.entries(templatesByCategory).map(([category, templates]) => (
@@ -586,8 +663,8 @@ export default function ResumeStudio() {
                             onClick={() => setTemplateId(t.id)}
                             className={`rounded-2xl border p-3 text-left transition-all group ${
                               active
-                                ? "border-brand-500 bg-brand-50 shadow-md dark:bg-brand-500/10"
-                                : "border-border bg-background hover:border-brand-300 hover:shadow-sm"
+                                ? "border-brand-500 bg-brand-50 shadow-md ring-2 ring-brand-200/60 dark:bg-brand-500/10"
+                                : "border-border bg-background hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md"
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2">
@@ -601,6 +678,9 @@ export default function ResumeStudio() {
                               {active && <Check className="h-4 w-4 text-brand-600 flex-shrink-0" />}
                             </div>
                             <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{t.preview}</p>
+                            <div className="mt-2 h-1.5 w-full rounded-full bg-secondary">
+                              <div className={`h-full rounded-full ${t.accent}`} style={{ width: active ? "72%" : "42%" }} />
+                            </div>
                           </button>
                         );
                       })}
@@ -706,7 +786,7 @@ export default function ResumeStudio() {
         </div>
 
         <div className="space-y-5">
-          <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="font-display text-lg font-semibold">{selectedTemplate.name} Preview</h2>
@@ -739,13 +819,16 @@ export default function ResumeStudio() {
               </button>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-border">
-              <div className="bg-foreground/5 p-6 max-h-[600px] overflow-y-auto">
-                {renderTemplatePreview()}
+            <div className="overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900/30 dark:to-slate-800/30">
+              <div className="max-h-[620px] overflow-y-auto p-6">
+                <div className="mx-auto w-full max-w-[790px] rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_-30px_rgba(2,6,23,0.45)] dark:border-slate-700 dark:bg-slate-950/40">
+                  {renderTemplatePreview()}
+                </div>
               </div>
             </div>
           </div>
 
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h3 className="font-display text-lg font-semibold mb-1">Maple power tools</h3>
             <p className="text-xs text-muted-foreground mb-4">Enhance and export your resume</p>
             
@@ -754,18 +837,29 @@ export default function ResumeStudio() {
               <div className="space-y-3">
                 <button
                   type="button"
-                  onClick={() => setPreviewMode("fullscreen")}
-                  className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white px-4 py-3.5 text-sm font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95"
+                  onClick={() => setShowEmptyTemplate(true)}
+                  className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white px-4 py-3.5 text-sm font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95"
                 >
                   <span className="inline-flex items-center gap-2">
                     <LayoutTemplate className="h-5 w-5" />
-                    <span>Preview Full Page</span>
+                    <span>Preview Empty Template</span>
                   </span>
                   <ArrowRight className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={() => setPreviewMode("fullscreen")}
+                  className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white px-4 py-3.5 text-sm font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <LayoutTemplate className="h-5 w-5" />
+                    <span>Open Full Preview</span>
+                  </span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowQualityPreview(true)}
                   className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-4 py-3.5 text-sm font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95"
                 >
                   <span className="inline-flex items-center gap-2">
@@ -775,7 +869,7 @@ export default function ResumeStudio() {
                   <span className="text-xs bg-white/20 rounded-full px-2.5 py-1">Ctrl+P</span>
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground mt-3 text-center">See alignment & layout before downloading</p>
+              <p className="text-xs text-muted-foreground mt-3 text-center">Review spacing, alignment, and hierarchy before export</p>
             </div>
 
             {/* Other Tools */}
@@ -785,7 +879,7 @@ export default function ResumeStudio() {
                 onClick={() => askMapleToEnhance("resume", toMarkdown(resume))}
                 className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm hover:bg-secondary/50 transition-colors"
               >
-                <span className="inline-flex items-center gap-2"><Sparkles className="h-4 w-4 text-brand-600" /> Rewrite full resume for Canadian recruiters</span>
+                <span className="inline-flex items-center gap-2"><Sparkles className="h-4 w-4 text-brand-600" /> Rewrite for Canadian Recruiters</span>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </button>
               <button
@@ -793,7 +887,7 @@ export default function ResumeStudio() {
                 onClick={() => askMapleToEnhance("experience bullets", resume.experience.flatMap((e) => e.bullets).join(" | "))}
                 className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm hover:bg-secondary/50 transition-colors"
               >
-                <span className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-brand-600" /> Improve impact metrics in bullets</span>
+                <span className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-brand-600" /> Strengthen Impact Metrics</span>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </button>
               <button
@@ -803,7 +897,7 @@ export default function ResumeStudio() {
               >
                 <span className="inline-flex items-center gap-2">
                   {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4 text-brand-600" />} 
-                  {copied ? "Copied markdown resume" : "Copy resume as markdown"}
+                  {copied ? "Markdown Copied" : "Copy as Markdown"}
                 </span>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </button>
@@ -830,7 +924,7 @@ export default function ResumeStudio() {
             </button>
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => setShowQualityPreview(true)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white px-4 py-2 text-xs font-semibold transition-all shadow-md hover:shadow-lg active:scale-95"
             >
               <Download className="h-3.5 w-3.5" />
@@ -855,7 +949,7 @@ export default function ResumeStudio() {
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => setShowQualityPreview(true)}
                 className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white px-4 py-2 text-sm font-semibold transition-all"
               >
                 <Download className="h-4 w-4" />
@@ -880,6 +974,40 @@ export default function ResumeStudio() {
                 height: "11in",
                 overflow: "hidden",
               }}
+
+              {/* Quality Check Modal */}
+              {showQualityPreview && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                  <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl">
+                    <h3 className="font-display text-xl font-semibold">Ready to Download</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Quick check before export: your template and spacing look polished. Continue to print/download PDF.
+                    </p>
+                    <div className="mt-4 rounded-xl border border-border bg-background p-3 text-xs text-muted-foreground">
+                      Template: <span className="font-semibold text-foreground">{selectedTemplate.name}</span> • Theme: <span className="font-semibold text-foreground">{smartTheme.name}</span>
+                    </div>
+                    <div className="mt-5 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowQualityPreview(false)}
+                        className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-secondary"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowQualityPreview(false);
+                          window.print();
+                        }}
+                        className="rounded-lg bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-2 text-sm font-semibold text-white hover:from-brand-700 hover:to-brand-800"
+                      >
+                        Continue to Download
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             >
               {/* A4/Letter page with print styles */}
               <div className="p-6" style={{ fontSize: "11pt", lineHeight: "1.4" }}>
@@ -891,6 +1019,104 @@ export default function ResumeStudio() {
           {/* Footer */}
           <div className="border-t border-border bg-card px-4 sm:px-6 py-3 text-center text-xs text-muted-foreground">
             <p>Tip: Use Cmd+P (Mac) or Ctrl+P (Windows) in the preview to save directly as PDF</p>
+          </div>
+        </div>
+      )}
+
+      {/* Quality Preview Modal */}
+      <QualityPreviewModal
+        isOpen={showQualityPreview}
+        onClose={() => setShowQualityPreview(false)}
+        onDownload={() => {
+          setShowQualityPreview(false);
+          window.print();
+        }}
+        resume={resume}
+        templateName={selectedTemplate.name}
+        completeness={completeness}
+      />
+
+      {/* Empty Template Preview Modal */}
+      {showEmptyTemplate && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-background">
+          {/* Header */}
+          <div className="border-b border-border bg-card px-4 sm:px-6 py-4 flex items-center justify-between">
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold">{selectedTemplate.name} Template Structure</h2>
+              <p className="text-xs text-muted-foreground mt-1">See how this template is organized before adding your content</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowEmptyTemplate(false)}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background hover:bg-secondary px-4 py-2 text-sm font-medium transition-colors"
+            >
+              <span>Close</span>
+            </button>
+          </div>
+
+          {/* Content - A4/Letter Size Preview */}
+          <div className="flex-1 overflow-auto bg-muted/20 p-4 sm:p-8 flex items-center justify-center">
+            <div 
+              className="bg-white text-black shadow-2xl"
+              style={{
+                width: "8.5in",
+                height: "11in",
+                overflow: "hidden",
+              }}
+            >
+              {/* A4/Letter page - Empty template structure */}
+              <div className="p-6 space-y-4" style={{ fontSize: "11pt", lineHeight: "1.5", color: "#666" }}>
+                {/* Header Section */}
+                <div className="border-b-2" style={{ borderColor: renderTheme.accent, paddingBottom: "12px" }}>
+                  <div style={{ fontSize: "18pt", fontWeight: "bold", color: renderTheme.heading }}>Your Name Here</div>
+                  <div style={{ fontSize: "10pt", marginTop: "4px", color: renderTheme.body }}>Professional headline or target role</div>
+                  <div style={{ fontSize: "9pt", marginTop: "4px", color: renderTheme.muted }}>Email • Phone • Location</div>
+                </div>
+
+                {/* Summary Section */}
+                {selectedTemplate.layout !== "compact" && (
+                  <div>
+                    <div style={{ fontSize: "9pt", fontWeight: "bold", letterSpacing: "0.08em", color: "#888", marginBottom: "6px" }}>PROFESSIONAL SUMMARY</div>
+                    <div style={{ fontSize: "10pt", color: renderTheme.body, lineHeight: "1.4" }}>
+                      Your professional summary or objective goes here. Highlight key strengths, years of experience, and career goals relevant to the role.
+                    </div>
+                  </div>
+                )}
+
+                {/* Experience Section */}
+                <div>
+                  <div style={{ fontSize: "9pt", fontWeight: "bold", letterSpacing: "0.08em", color: "#888", marginBottom: "6px" }}>PROFESSIONAL EXPERIENCE</div>
+                  <div style={{ marginBottom: "12px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
+                      <div style={{ fontWeight: "bold", color: renderTheme.heading }}>Job Title</div>
+                      <div style={{ fontSize: "9pt", color: "#999" }}>2024 - Present</div>
+                    </div>
+                    <div style={{ fontSize: "9pt", color: "#999", marginBottom: "4px" }}>Company Name</div>
+                    <ul style={{ fontSize: "10pt", color: renderTheme.body, marginLeft: "16px", listStyleType: "disc" }}>
+                      <li>Achievement or responsibility with impact metrics</li>
+                      <li>Key contribution to team or project success</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Footer Sections */}
+                <div style={{ display: "grid", gridTemplateColumns: selectedTemplate.layout === "two-column" ? "1fr" : "1fr 1fr", gap: "16px", marginTop: "12px" }}>
+                  <div>
+                    <div style={{ fontSize: "9pt", fontWeight: "bold", letterSpacing: "0.08em", color: "#888", marginBottom: "6px" }}>SKILLS</div>
+                    <div style={{ fontSize: "10pt", color: renderTheme.body }}>Skill 1 • Skill 2 • Skill 3 • Skill 4</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "9pt", fontWeight: "bold", letterSpacing: "0.08em", color: "#888", marginBottom: "6px" }}>EDUCATION</div>
+                    <div style={{ fontSize: "10pt", color: renderTheme.body }}>Degree, Institution, Year</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-border bg-card px-4 sm:px-6 py-3 text-center text-xs text-muted-foreground">
+            <p>This is the structural layout. Your content will fill these sections.</p>
           </div>
         </div>
       )}
