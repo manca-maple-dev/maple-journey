@@ -62,6 +62,7 @@ class TelegramDataCollector:
         app.add_handler(CommandHandler("recent", self.recent_command))
         app.add_handler(CommandHandler("summary", self.summary_command))
         app.add_handler(CommandHandler("export", self.export_command))
+        app.add_handler(CommandHandler("search", self.search_command))
         app.add_handler(CommandHandler("cancel", self.cancel_command))
 
         # Conversation handler for data collection
@@ -136,6 +137,7 @@ class TelegramDataCollector:
             "• `/recent` - View 5 most recent submissions\n"
             "• `/summary` - Quick data overview\n"
             "• `/export` - Download all data as JSON\n"
+            "• `/search <query>` - Smart profile search\n"
             "• `/cancel` - Cancel current operation\n\n"
             "📋 **Data We Collect:**\n"
             "• Email address\n"
@@ -671,6 +673,142 @@ class TelegramDataCollector:
             caption=f"📊 **Data Export**\n\n✅ {len(export_data)} records exported"
         )
 
+    async def search_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Smart search across profile records using a natural query string."""
+        query_parts = context.args or []
+        if not query_parts:
+            await update.message.reply_text(
+                "🔎 Usage: `/search <query>`\n\n"
+                "Examples:\n"
+                "• `/search john`\n"
+                "• `/search student visa`\n"
+                "• `/search toronto`\n"
+                "• `/search income 50000`\n"
+                "• `/search children 2`",
+                parse_mode="Markdown",
+            )
+            return
+
+        raw_query = " ".join(query_parts).strip()
+        user = update.effective_user
+        q = raw_query.lower()
+
+        # Field-hint aliases to make searches feel more natural.
+        field_aliases = {
+            "email": ["email", "mail"],
+            "phone": ["phone", "mobile", "cell", "number"],
+            "address": ["address", "city", "postal", "zip"],
+            "full_name": ["name", "person", "user"],
+            "immigration_status": ["status", "visa", "permit", "resident", "pr"],
+            "annual_income": ["income", "salary", "earnings"],
+            "dependent_children": ["children", "child", "kids", "dependents"],
+        }
+
+        hinted_field = None
+        for field, aliases in field_aliases.items():
+            if any(a in q for a in aliases):
+                hinted_field = field
+                break
+
+        query_filter: Dict[str, Any] = {"status": "completed"}
+        is_admin = bool(getattr(user, "id", None))
+        # Non-admin behavior by Telegram role is enforced in API routes, but the bot itself
+        # should return current user's records unless explicit admin account handling is added.
+        query_filter["user_id"] = user.id
+
+        records = await self.collected_data.find(query_filter).sort("collected_at", -1).limit(50).to_list(None)
+        if not records:
+            await update.message.reply_text(
+                "📭 No profile data found yet. Use `/collect` first.",
+                parse_mode="Markdown",
+            )
+            return
+
+        matched: List[Dict[str, Any]] = []
+        numeric_query = None
+        try:
+            numeric_query = float(q.replace(",", " ").split()[-1])
+        except Exception:
+            numeric_query = None
+
+        for rec in records:
+            data = rec.get("collected_data", {}) or {}
+
+            haystack_parts = [
+                str(rec.get("username") or ""),
+                str(rec.get("first_name") or ""),
+                str(rec.get("last_name") or ""),
+            ]
+
+            if hinted_field:
+                haystack_parts.append(str(data.get(hinted_field, "")))
+            else:
+                for key in [
+                    "email",
+                    "phone",
+                    "address",
+                    "full_name",
+                    "immigration_status",
+                    "annual_income",
+                    "dependent_children",
+                ]:
+                    haystack_parts.append(str(data.get(key, "")))
+
+            haystack = " ".join(haystack_parts).lower()
+            score = 0
+
+            if q in haystack:
+                score += 3
+
+            # Token scoring helps natural-language fragments match partially.
+            for token in [t for t in q.split() if len(t) > 1]:
+                if token in haystack:
+                    score += 1
+
+            # Numeric fuzzy matching for income/children searches.
+            if numeric_query is not None:
+                income = data.get("annual_income")
+                children = data.get("dependent_children")
+                try:
+                    if income is not None and abs(float(income) - numeric_query) <= max(1000.0, float(income) * 0.1):
+                        score += 2
+                except Exception:
+                    pass
+                try:
+                    if children is not None and int(children) == int(numeric_query):
+                        score += 2
+                except Exception:
+                    pass
+
+            if score > 0:
+                rec["_score"] = score
+                matched.append(rec)
+
+        if not matched:
+            await update.message.reply_text(
+                f"No matches for: `{raw_query}`",
+                parse_mode="Markdown",
+            )
+            return
+
+        matched.sort(key=lambda r: (r.get("_score", 0), r.get("collected_at", datetime.min)), reverse=True)
+        top = matched[:5]
+
+        lines = [f"🔎 Results for: `{raw_query}`", ""]
+        for idx, rec in enumerate(top, 1):
+            data = rec.get("collected_data", {}) or {}
+            lines.append(
+                f"{idx}. 👤 {data.get('full_name') or rec.get('first_name') or 'Unknown'}"
+            )
+            lines.append(f"   📧 {data.get('email', 'N/A')}")
+            lines.append(f"   📱 {data.get('phone', 'N/A')}")
+            lines.append(f"   🛂 {data.get('immigration_status', 'N/A')}")
+            lines.append(f"   💰 ${float(data.get('annual_income', 0)) if data.get('annual_income') is not None else 0:,.0f}")
+            lines.append(f"   👨‍👩‍👧‍👦 {data.get('dependent_children', 0)}")
+            lines.append("")
+
+        await update.message.reply_text("\n".join(lines).strip(), parse_mode="Markdown")
+
     async def cancel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Cancel current operation"""
         user_id = update.effective_user.id
@@ -698,6 +836,7 @@ class TelegramDataCollector:
             "• `/recent` - Last 5 submissions\n"
             "• `/summary` - Quick overview\n"
             "• `/export` - Download data\n"
+            "• `/search <query>` - Smart profile search\n"
             "• `/cancel` - Cancel operation",
             parse_mode="Markdown",
         )
