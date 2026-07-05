@@ -25,9 +25,25 @@ def _now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+def _frontend_base_url(fallback_origin: str = "") -> str:
+    configured = (
+        os.environ.get("PUBLIC_APP_URL")
+        or os.environ.get("FRONTEND_APP_URL")
+        or os.environ.get("APP_BASE_URL")
+        or fallback_origin
+    )
+    configured = (configured or "").strip().rstrip("/")
+    if not configured:
+        raise HTTPException(status_code=503, detail="Frontend app URL is not configured")
+    return configured
+
+
 def _checkout(webhook_url: str):
     from emergentintegrations.payments.stripe.checkout import StripeCheckout
-    return StripeCheckout(api_key=os.environ["STRIPE_API_KEY"], webhook_url=webhook_url)
+    api_key = os.environ.get("STRIPE_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(status_code=503, detail="Stripe is not configured")
+    return StripeCheckout(api_key=api_key, webhook_url=webhook_url)
 
 
 async def _grant_tier(session_id: str):
@@ -40,6 +56,13 @@ async def _grant_tier(session_id: str):
     await ensure_wallet(txn["user_id"], tier=txn["plan_id"])
     await grant_tier_pack(txn["user_id"], tier=txn["plan_id"])
     await db.payment_transactions.update_one({"session_id": session_id}, {"$set": {"granted": True, "granted_at": _now_iso()}})
+    logger.info(
+        "stripe tier granted session_id=%s user_id=%s plan_id=%s expires_at=%s",
+        session_id,
+        txn["user_id"],
+        txn["plan_id"],
+        expires,
+    )
     # Send a branded receipt / upgrade confirmation (never blocks the grant).
     user = await db.users.find_one({"_id": ObjectId(txn["user_id"])})
     if user and user.get("email"):
@@ -65,22 +88,32 @@ async def billing_history(user: dict = Depends(get_current_user)):
 
 
 @router.post("/checkout/session")
-async def create_checkout_session(body: CheckoutIn, user: dict = Depends(get_current_user)):
+async def create_checkout_session(body: CheckoutIn, request: Request, user: dict = Depends(get_current_user)):
     plan_id = body.plan_id
     if plan_id not in PLAN_PRICES or plan_id == "free":
         raise HTTPException(status_code=400, detail="Invalid plan")
 
     amount = float(PLAN_PRICES[plan_id])  # server-side price only
-    host = body.origin_url.rstrip("/")
-    webhook_url = f"{host}/api/webhook/stripe"
-    success_url = f"{host}/app/plans?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{host}/app/plans"
+    api_base = str(request.base_url).rstrip("/")
+    app_base = _frontend_base_url(body.origin_url)
+    webhook_url = f"{api_base}/api/webhook/stripe"
+    success_url = f"{app_base}/app/plans?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{app_base}/app/plans"
     metadata = {"user_id": str(user["_id"]), "plan_id": plan_id, "source": "app_upgrade"}
 
     from emergentintegrations.payments.stripe.checkout import CheckoutSessionRequest
     checkout = _checkout(webhook_url)
     req = CheckoutSessionRequest(amount=amount, currency="usd", success_url=success_url, cancel_url=cancel_url, metadata=metadata)
     session = await checkout.create_checkout_session(req)
+
+    logger.info(
+        "stripe checkout created session_id=%s user_id=%s plan_id=%s amount=%s currency=usd app_base=%s",
+        session.session_id,
+        str(user["_id"]),
+        plan_id,
+        amount,
+        app_base,
+    )
 
     await db.payment_transactions.insert_one({
         "session_id": session.session_id,
@@ -102,6 +135,8 @@ async def checkout_status(session_id: str, request: Request, user: dict = Depend
     txn = await db.payment_transactions.find_one({"session_id": session_id})
     if not txn:
         raise HTTPException(status_code=404, detail="Unknown checkout session")
+    if txn.get("user_id") != str(user["_id"]):
+        raise HTTPException(status_code=403, detail="This checkout session does not belong to you")
 
     host = str(request.base_url).rstrip("/")
     checkout = _checkout(f"{host}/api/webhook/stripe")
@@ -113,6 +148,14 @@ async def checkout_status(session_id: str, request: Request, user: dict = Depend
     )
     if status.payment_status == "paid":
         await _grant_tier(session_id)
+
+    logger.info(
+        "stripe checkout status session_id=%s user_id=%s status=%s payment_status=%s",
+        session_id,
+        str(user["_id"]),
+        status.status,
+        status.payment_status,
+    )
 
     return {"status": status.status, "payment_status": status.payment_status, "plan_id": txn["plan_id"]}
 
@@ -134,5 +177,6 @@ async def stripe_webhook(request: Request):
             {"session_id": resp.session_id},
             {"$set": {"payment_status": "paid", "status": "complete", "updated_at": _now_iso()}},
         )
+        logger.info("stripe webhook paid session_id=%s", resp.session_id)
         await _grant_tier(resp.session_id)
     return {"received": True}

@@ -2,6 +2,7 @@
 import os
 import secrets
 import hashlib
+import logging
 from datetime import datetime, timezone, timedelta
 
 from bson import ObjectId
@@ -24,6 +25,7 @@ from services.credits import ensure_wallet
 from services.companion_welcome import send_welcome_message
 
 router = APIRouter(tags=["auth"])
+log = logging.getLogger("maplejourney.auth")
 
 
 def _hash_token(raw: str) -> str:
@@ -151,7 +153,15 @@ async def forgot_password(body: ForgotPasswordIn, background_tasks: BackgroundTa
         })
         base = os.environ.get("APP_BASE_URL", "").rstrip("/")
         reset_url = f"{base}/reset-password?token={raw}"
+        log.info(
+            "password reset queued email=%s user_id=%s reset_url_host=%s",
+            email,
+            str(user["_id"]),
+            base or "missing-app-base-url",
+        )
         background_tasks.add_task(send_email_safe, email, "password_reset", name=user.get("name", ""), reset_url=reset_url)
+    else:
+        log.info("password reset requested for unknown email=%s", email)
     # Always succeed to avoid revealing whether an account exists.
     return {"ok": True}
 

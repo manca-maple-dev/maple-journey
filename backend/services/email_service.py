@@ -80,12 +80,29 @@ async def send_email_safe(to_email: str, template: str, **ctx) -> bool:
         await _send_raw(to_email, subject, html, text)
         entry["status"] = "sent"
         ok = True
+        log.info(
+            "email sent template=%s to=%s subject=%s",
+            template,
+            to_email,
+            subject,
+        )
     except Exception as e:
-        log.warning("email send skipped/failed to %s (%s): %s", to_email, template, str(e))
+        log.warning(
+            "email failed template=%s to=%s subject=%s error=%s",
+            template,
+            to_email,
+            subject,
+            str(e),
+        )
         entry["status"] = "failed"
         entry["error"] = str(e)
     try:
         await db.email_log.insert_one(entry)
     except Exception:
-        pass
+        log.exception(
+            "email log persistence failed template=%s to=%s status=%s",
+            template,
+            to_email,
+            entry.get("status", "unknown"),
+        )
     return ok

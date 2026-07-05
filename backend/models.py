@@ -111,7 +111,7 @@ class ChatIn(BaseModel):
 # --- Payments ---
 class CheckoutIn(BaseModel):
     plan_id: str
-    origin_url: str
+    origin_url: Optional[str] = ""
 
 
 class SecureIdsIn(BaseModel):
