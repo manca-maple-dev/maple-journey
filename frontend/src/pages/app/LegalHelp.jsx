@@ -4,6 +4,45 @@ import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useMaple } from "@/context/MapleContext";
 
+const FALLBACK_LEGAL = [
+  {
+    id: "legal_lao",
+    name: "Legal Aid Ontario",
+    type: "Immigration",
+    province: "ON",
+    cost: "Free",
+    description: "Immigration and refugee legal help for eligible low-income clients.",
+    contact: "1-800-668-8258",
+    url: "https://www.legalaid.on.ca/services/immigration-and-refugee-law/",
+    freshness_label: "Verified source",
+    relevance_reasons: ["In your province", "Free support"],
+  },
+  {
+    id: "legal_labc",
+    name: "Legal Aid BC",
+    type: "Refugee",
+    province: "BC",
+    cost: "Free",
+    description: "Refugee and immigration legal representation in BC.",
+    contact: "1-866-577-2525",
+    url: "https://legalaid.bc.ca/",
+    freshness_label: "Verified source",
+    relevance_reasons: ["Free support"],
+  },
+  {
+    id: "legal_justice",
+    name: "Department of Justice - Legal Aid",
+    type: "General",
+    province: "National",
+    cost: "Free",
+    description: "Federal legal aid information and links to provincial legal aid plans.",
+    contact: "1-800-O-CANADA",
+    url: "https://www.justice.gc.ca/eng/fund-fina/gov-gouv/aid-aide.html",
+    freshness_label: "Verified source",
+    relevance_reasons: ["Available across Canada", "Free support"],
+  },
+];
+
 const RIGHTS_LINKS = [
   {
     id: "find-rep",
@@ -26,10 +65,22 @@ export default function LegalHelp() {
   const { user } = useAuth();
   const { openWith } = useMaple();
   const [items, setItems] = useState([]);
+  const [loadError, setLoadError] = useState(false);
   const [type, setType] = useState("All");
   const [province, setProvince] = useState("All");
 
-  useEffect(() => { api.get("/legal-resources").then(({ data }) => setItems(data)).catch(() => {}); }, []);
+  useEffect(() => {
+    api
+      .get("/legal-resources")
+      .then(({ data }) => {
+        const next = Array.isArray(data) && data.length > 0 ? data : FALLBACK_LEGAL;
+        setItems(next);
+      })
+      .catch(() => {
+        setLoadError(true);
+        setItems(FALLBACK_LEGAL);
+      });
+  }, []);
 
   const isRefugee = (user?.newcomer_type || "").toLowerCase() === "refugee";
   const types = ["All", ...Array.from(new Set(items.map((i) => i.type)))];
@@ -65,6 +116,11 @@ export default function LegalHelp() {
       </div>
 
       {/* Filters */}
+      {loadError && (
+        <p className="text-xs text-amber-600">
+          Live legal feed is temporarily unavailable. Showing verified fallback resources.
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         {types.map((t) => (
           <button key={t} onClick={() => setType(t)} data-testid={`legal-type-${t}`}

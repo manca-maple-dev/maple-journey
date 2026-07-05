@@ -8,18 +8,54 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
+const FALLBACK_BENEFITS = [
+  {
+    id: "benefit_ccb",
+    title: "Canada Child Benefit (CCB)",
+    category: "childcare",
+    description: "Tax-free monthly payment to help with the cost of raising children under 18.",
+    eligibility: "Parents/guardians who are residents for tax purposes.",
+    coverage: "Up to $7,787/year per child",
+    cta_text: "Learn More",
+    url: "https://www.canada.ca/en/revenue-agency/services/child-family-benefits/canada-child-benefit-overview.html",
+    is_new: true,
+  },
+  {
+    id: "benefit_gst",
+    title: "GST/HST Credit",
+    category: "financial",
+    description: "Quarterly tax-free payment to offset sales tax for low and modest-income households.",
+    eligibility: "Residents age 19+ who file taxes.",
+    coverage: "Quarterly payments based on household income",
+    cta_text: "Learn More",
+    url: "https://www.canada.ca/en/revenue-agency/services/child-family-benefits/gsthstc-eligibility.html",
+  },
+  {
+    id: "benefit_ei",
+    title: "Employment Insurance (EI)",
+    category: "employment",
+    description: "Temporary income support if you lose your job through no fault of your own.",
+    eligibility: "Workers with enough insurable hours and valid status.",
+    coverage: "Typically up to 55% of insurable earnings",
+    cta_text: "Learn More",
+    url: "https://www.canada.ca/en/services/benefits/ei.html",
+  },
+];
+
 export default function BenefitsMarketplace() {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [province, setProvince] = useState(user?.profile?.province || "ON");
 
-  const { data: benefits = [], isLoading } = useQuery({
+  const { data: benefits = [], isLoading, isError } = useQuery({
     queryKey: ["benefits", province],
     queryFn: () => api.get(`/domain/benefits?province=${province}`).then((r) => r.data || []),
   });
 
-  let filtered = benefits;
+  const sourceBenefits = Array.isArray(benefits) && benefits.length > 0 ? benefits : FALLBACK_BENEFITS;
+
+  let filtered = sourceBenefits;
   if (filter !== "all") filtered = filtered.filter((b) => b.category === filter);
   if (search) filtered = filtered.filter((b) => 
     b.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -48,6 +84,11 @@ export default function BenefitsMarketplace() {
 
       {/* Search & Filters */}
       <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
+        {isError && (
+          <p className="text-xs text-amber-600">
+            Live benefit feed is temporarily unavailable. Showing verified fallback resources.
+          </p>
+        )}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex-1">
             <div className="relative">
