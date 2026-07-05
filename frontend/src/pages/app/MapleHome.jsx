@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   Sun, Cloud, CloudSun, CloudRain, CloudDrizzle, CloudFog, CloudLightning, Snowflake,
   Wind, Droplets, ExternalLink, CalendarDays, MapPin, Send, ArrowRight, Sparkles, ShieldCheck,
-  CreditCard, Languages, HeartPulse, Briefcase, Baby, FileText,
+  CreditCard, Languages, HeartPulse, Briefcase, Baby, FileText, AlertCircle, CheckCircle2, Clock,
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -351,6 +351,71 @@ export default function MapleHome() {
               </button>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* Status & Deadlines — Show user's key dates and Resume CTA */}
+      {profile && (
+        <section className="rounded-2xl border-2 border-maple/30 bg-gradient-to-br from-maple/5 to-maple/10 p-6 dark:from-maple-900/20 dark:to-maple-900/30" data-testid="status-deadlines">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-display text-lg font-semibold flex items-center gap-2">
+                <Clock className="h-5 w-5 text-maple" />
+                Status & Deadlines
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Key dates in your immigration journey. Keep these updated for accurate reminders.
+              </p>
+            </div>
+          </div>
+
+          {/* Display key dates */}
+          <div className="grid gap-3 sm:grid-cols-2 mb-4">
+            {profile.arrival_date_canada && (
+              <div className="rounded-lg border border-maple/20 bg-white/50 dark:bg-black/20 p-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase">Arrived in Canada</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {new Date(profile.arrival_date_canada).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
+                </p>
+              </div>
+            )}
+            {profile.work_permit_expiry && (
+              <div className="rounded-lg border-l-2 border-l-maple bg-white/50 dark:bg-black/20 p-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase">Work Permit Expires</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {new Date(profile.work_permit_expiry).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
+                </p>
+              </div>
+            )}
+            {profile.study_permit_expiry && (
+              <div className="rounded-lg border-l-2 border-l-brand-500 bg-white/50 dark:bg-black/20 p-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase">Study Permit Expires</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {new Date(profile.study_permit_expiry).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
+                </p>
+              </div>
+            )}
+            {profile.pr_received_date && (
+              <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 p-3">
+                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase">Became Permanent Resident</p>
+                <p className="mt-1 text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                  {new Date(profile.pr_received_date).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Build Resume CTA */}
+          <button
+            onClick={() => navigate("/app/resume")}
+            className="w-full rounded-xl border-2 border-maple bg-gradient-to-r from-maple to-maple/80 hover:from-maple/90 hover:to-maple/70 text-white px-4 py-3 font-semibold transition-all shadow-sm hover:shadow-md"
+          >
+            <FileText className="mr-2 inline h-4 w-4" />
+            Build Your Resume Now
+          </button>
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            Use your profile info + deadlines to create a professional resume for job applications
+          </p>
         </section>
       )}
 
