@@ -129,11 +129,17 @@ async def scrape_jobs_from_jooble(
                 for item in data.get("jobs", [])[: min(limit, 100)]:
                     salary_text = item.get("salary") or ""
                     salary_min, salary_max = _parse_salary_range(salary_text)
-                    provider_location = item.get("location", "")
+                    title = str(item.get("title") or "")
+                    company = str(item.get("company") or "")
+                    provider_location = str(item.get("location") or "")
+                    snippet = str(item.get("snippet") or "")
+                    job_type = str(item.get("type") or "")
+                    external_url = str(item.get("link") or "")
+                    updated = str(item.get("updated") or datetime.utcnow().isoformat())
                     jobs.append(
                         {
-                            "title": item.get("title", ""),
-                            "company": item.get("company", ""),
+                            "title": title,
+                            "company": company,
                             # Keep cache key aligned with the user's requested location.
                             # Jooble may return similarly named places in other countries
                             # (e.g., "Toronto, OH") which would otherwise be filtered out.
@@ -142,13 +148,13 @@ async def scrape_jobs_from_jooble(
                             "salary_min": salary_min,
                             "salary_max": salary_max,
                             "salary_currency": "CAD",
-                            "job_type": item.get("type", ""),
-                            "description": item.get("snippet", ""),
-                            "external_url": item.get("link", ""),
+                            "job_type": job_type,
+                            "description": snippet,
+                            "external_url": external_url,
                             "source": "jooble",
-                            "date_posted": item.get("updated", datetime.utcnow().isoformat()),
-                            "experience_level": _infer_experience_level(item.get("snippet", "")),
-                            "industry": _infer_industry(item.get("title", "")),
+                            "date_posted": updated,
+                            "experience_level": _infer_experience_level(snippet),
+                            "industry": _infer_industry(title),
                         }
                     )
     except Exception as e:
@@ -482,7 +488,7 @@ async def get_new_jobs_count(user_id: str, since_last_login: Optional[datetime] 
 
 def _infer_industry(job_title: str) -> str:
     """Infer job industry from title using keyword matching."""
-    title_lower = job_title.lower()
+    title_lower = str(job_title or "").lower()
     
     if any(kw in title_lower for kw in TECH_KEYWORDS):
         return "Technology"
@@ -500,7 +506,7 @@ def _infer_industry(job_title: str) -> str:
 
 def _infer_experience_level(job_description: str) -> str:
     """Infer experience level from job description keywords."""
-    desc_lower = job_description.lower()
+    desc_lower = str(job_description or "").lower()
     
     if any(kw in desc_lower for kw in ["senior", "lead", "manager", "director", "principal", "veteran", "10+"]):
         return "senior"
@@ -541,7 +547,11 @@ def _score_job_relevance(job: Dict, user_profile: Dict) -> float:
     # Salary match
     user_salary_min = user_profile.get("salary_min", 50000)
     user_salary_max = user_profile.get("salary_max", 150000)
-    job_salary_max = job.get("salary_max", user_salary_max)
+    job_salary_max_raw = job.get("salary_max", user_salary_max)
+    try:
+        job_salary_max = int(job_salary_max_raw) if job_salary_max_raw is not None else user_salary_max
+    except (TypeError, ValueError):
+        job_salary_max = user_salary_max
     if user_salary_min <= job_salary_max <= user_salary_max:
         score += 20
     
