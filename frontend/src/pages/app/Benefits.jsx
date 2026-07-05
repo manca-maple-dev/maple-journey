@@ -106,7 +106,7 @@ export default function BenefitsMarketplace() {
         ) : filtered.length === 0 ? (
           <div className="sm:col-span-2 lg:col-span-3 rounded-2xl border border-border bg-card p-8 text-center">
             <Gift className="h-12 w-12 mx-auto opacity-20 mb-3" />
-            <p className="text-muted-foreground">No benefits match your search at the moment. We are continuously adding more accurate provincial benefit data.</p>
+            <p className="text-muted-foreground">No benefits match your search yet. We are continuously adding more accurate benefit data for each province.</p>
           </div>
         ) : (
           filtered.map((benefit) => (
