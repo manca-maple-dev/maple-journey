@@ -58,6 +58,10 @@ class TelegramDataCollector:
         app.add_handler(CommandHandler("start", self.start_command))
         app.add_handler(CommandHandler("collect", self.collect_command))
         app.add_handler(CommandHandler("status", self.status_command))
+        app.add_handler(CommandHandler("stats", self.stats_command))
+        app.add_handler(CommandHandler("recent", self.recent_command))
+        app.add_handler(CommandHandler("summary", self.summary_command))
+        app.add_handler(CommandHandler("export", self.export_command))
         app.add_handler(CommandHandler("cancel", self.cancel_command))
 
         # Conversation handler for data collection
@@ -127,7 +131,11 @@ class TelegramDataCollector:
             "We collect structured user information to help newcomers access benefits.\n\n"
             "🔧 **Available Commands:**\n"
             "• `/collect` - Start data collection form\n"
-            "• `/status` - Check your collected data\n"
+            "• `/status` - Check your latest collection\n"
+            "• `/stats` - See all collection statistics\n"
+            "• `/recent` - View 5 most recent submissions\n"
+            "• `/summary` - Quick data overview\n"
+            "• `/export` - Download all data as JSON\n"
             "• `/cancel` - Cancel current operation\n\n"
             "📋 **Data We Collect:**\n"
             "• Email address\n"
@@ -549,7 +557,119 @@ class TelegramDataCollector:
 
         await update.message.reply_text(status_text, parse_mode="Markdown")
 
-    async def cancel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show detailed collection statistics"""
+        stats = await self.get_collection_stats()
+        
+        form_breakdown = "\n".join([
+            f"  • {form_type.capitalize()}: {count}"
+            for form_type, count in stats.get("by_form_type", {}).items()
+        ]) or "  • No data yet"
+
+        stats_text = (
+            "📊 **Collection Statistics**\n\n"
+            f"📈 **Total Records:** {stats['total_records']}\n"
+            f"✅ **Completed:** {stats['completed']}\n"
+            f"📅 **Today:** {stats['today']}\n\n"
+            f"**By Form Type:**\n{form_breakdown}\n\n"
+            f"⏱️ Updated: {stats['collected_at'][:16]}"
+        )
+        
+        await update.message.reply_text(stats_text, parse_mode="Markdown")
+
+    async def recent_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show 5 most recent submissions"""
+        recent = await self.collected_data.find(
+            {"status": "completed"}
+        ).sort("collected_at", -1).limit(5).to_list(None)
+        
+        if not recent:
+            await update.message.reply_text(
+                "📭 No data collected yet.\n\n"
+                "Use `/collect` to start.",
+                parse_mode="Markdown",
+            )
+            return
+        
+        recent_text = "📋 **Recent 5 Submissions:**\n\n"
+        for i, record in enumerate(recent, 1):
+            data = record.get("collected_data", {})
+            collected_at = record.get("collected_at", datetime.utcnow())
+            time_ago = self._format_time_ago(collected_at)
+            
+            recent_text += (
+                f"{i}. **{record.get('form_type', 'Unknown').capitalize()}** ({time_ago})\n"
+                f"   Email: `{data.get('email', 'N/A')}`\n"
+                f"   Phone: `{data.get('phone', 'N/A')}`\n\n"
+            )
+        
+        await update.message.reply_text(recent_text, parse_mode="Markdown")
+
+    async def summary_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show quick data summary"""
+        stats = await self.get_collection_stats()
+        
+        # Get this month's data
+        now = datetime.utcnow()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        month_count = await self.collected_data.count_documents({
+            "collected_at": {"$gte": month_start},
+            "status": "completed"
+        })
+        
+        # Get average completion per day
+        yesterday = now - timedelta(days=1)
+        yesterday_count = await self.collected_data.count_documents({
+            "collected_at": {"$gte": yesterday},
+            "status": "completed"
+        })
+        
+        summary_text = (
+            "📊 **Your Data Summary**\n\n"
+            f"📌 **Total Submitted:** {stats['total_records']}\n"
+            f"📅 **This Month:** {month_count}\n"
+            f"🔄 **Yesterday:** {yesterday_count}\n"
+            f"📈 **Today:** {stats['today']}\n\n"
+            "**What's Next:**\n"
+            "• Your data is being processed for benefit matching\n"
+            "• You'll receive personalized recommendations\n"
+            "• Check `/status` for latest updates\n\n"
+            "Need help? Use `/collect` to add more info"
+        )
+        
+        await update.message.reply_text(summary_text, parse_mode="Markdown")
+
+    async def export_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Export all collected data as JSON"""
+        records = await self.collected_data.find(
+            {"status": "completed"}
+        ).sort("collected_at", -1).to_list(None)
+        
+        if not records:
+            await update.message.reply_text(
+                "📭 No data to export.",
+                parse_mode="Markdown",
+            )
+            return
+        
+        # Convert ObjectId to string for JSON serialization
+        export_data = []
+        for record in records:
+            record["_id"] = str(record["_id"])
+            record["collected_at"] = record["collected_at"].isoformat()
+            export_data.append(record)
+        
+        # Create JSON export
+        import io
+        json_content = json.dumps(export_data, indent=2, ensure_ascii=False)
+        json_file = io.BytesIO(json_content.encode("utf-8"))
+        
+        # Send file
+        await update.message.reply_document(
+            document=json_file,
+            filename=f"maple_data_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json",
+            caption=f"📊 **Data Export**\n\n✅ {len(export_data)} records exported"
+        )
         """Cancel current operation"""
         user_id = update.effective_user.id
         await self.user_sessions.update_one(
@@ -571,7 +691,11 @@ class TelegramDataCollector:
             "👋 I didn't understand that.\n\n"
             "**Available Commands:**\n"
             "• `/collect` - Start data collection\n"
-            "• `/status` - Check your data\n"
+            "• `/status` - Latest collection\n"
+            "• `/stats` - All statistics\n"
+            "• `/recent` - Last 5 submissions\n"
+            "• `/summary` - Quick overview\n"
+            "• `/export` - Download data\n"
             "• `/cancel` - Cancel operation",
             parse_mode="Markdown",
         )
