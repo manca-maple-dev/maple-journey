@@ -32,7 +32,11 @@ from core.config import SYSTEM_PROMPT, SOVEREIGN_SYSTEM_PROMPT
 from services.companion_memory import CompanionMemory
 from services.citation_validator import CitationValidator
 from services.twilio_service import send_whatsapp, send_imessage, send_message_by_channel
-import anthropic
+
+try:
+    import anthropic
+except ModuleNotFoundError:
+    anthropic = None
 
 logger = logging.getLogger("maplejourney.companion")
 
@@ -98,6 +102,9 @@ def _validate_twilio_signature(url: str, params: dict, signature: str, auth_toke
 
 async def _anthropic_completion(system_prompt: str, user_query: str) -> tuple[str, int]:
     """Run Anthropic completion without blocking the event loop."""
+
+    if anthropic is None:
+        raise RuntimeError("anthropic is not installed in this environment")
 
     def _call_anthropic() -> tuple[str, int]:
         client = anthropic.Anthropic()
