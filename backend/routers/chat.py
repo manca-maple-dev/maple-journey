@@ -49,19 +49,31 @@ router = APIRouter(tags=["chat"])
 companion_memory = CompanionMemory(db)
 
 
+def _env_value(*keys: str) -> str:
+    """Return the first non-empty environment variable value with loose normalization."""
+    for key in keys:
+        raw = os.environ.get(key)
+        if not raw:
+            continue
+        value = raw.strip().strip('"').strip("'")
+        if value:
+            return value
+    return ""
+
+
 async def _openai_chat_response(system_prompt: str, user_message: str) -> str:
     """Direct OpenAI fallback when EMERGENT routing is unavailable.
 
     Keeps Maple chat usable with OPENAI_API_KEY only.
     """
-    openai_key = os.environ.get("OPENAI_API_KEY")
+    openai_key = _env_value("OPENAI_API_KEY", "OPENAI_KEY", "OPENAI_API_TOKEN")
     if not openai_key:
         return ""
     try:
         from openai import AsyncOpenAI
 
         client = AsyncOpenAI(api_key=openai_key)
-        model = os.environ.get("OPENAI_CHAT_MODEL", "gpt-4.1")
+        model = _env_value("OPENAI_CHAT_MODEL") or "gpt-4.1"
         resp = await client.chat.completions.create(
             model=model,
             messages=[
@@ -75,6 +87,34 @@ async def _openai_chat_response(system_prompt: str, user_message: str) -> str:
         return (resp.choices[0].message.content or "").strip()
     except Exception:
         logger.exception("openai fallback failed")
+        return ""
+
+
+async def _anthropic_chat_response(system_prompt: str, user_message: str) -> str:
+    """Secondary fallback when OpenAI is unavailable."""
+    anthropic_key = _env_value("ANTHROPIC_API_KEY")
+    if not anthropic_key:
+        return ""
+    try:
+        import anthropic
+
+        client = anthropic.AsyncAnthropic(api_key=anthropic_key)
+        model = _env_value("ANTHROPIC_CHAT_MODEL") or "claude-3-5-sonnet-latest"
+        resp = await client.messages.create(
+            model=model,
+            max_tokens=MAX_TOKENS,
+            temperature=TEMPERATURE,
+            top_p=TOP_P,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+        chunks = []
+        for block in getattr(resp, "content", []) or []:
+            if getattr(block, "type", "") == "text" and getattr(block, "text", ""):
+                chunks.append(block.text)
+        return "\n".join(chunks).strip()
+    except Exception:
+        logger.exception("anthropic fallback failed")
         return ""
 
 
@@ -438,6 +478,8 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
         full = ""
         try:
             full = await _openai_chat_response(system, body.message)
+            if not full:
+                full = await _anthropic_chat_response(system, body.message)
             if not full:
                 full = grounded_fallback_response(reason="llm-unavailable")
             full = attach_verified_citations_if_missing(full, rag_context)
