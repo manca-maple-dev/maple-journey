@@ -492,6 +492,156 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
     try:
         from services.proactive_triggers import proactive_scheduler
         if proactive_scheduler:
+
+
+# ============================================================================
+# SIMPLE PUBLIC /ask ENDPOINT (No auth required)
+# ============================================================================
+
+KB_RESPONSES = {
+    "payment": (
+        "To confirm a payment made to the Government of Canada:\n\n"
+        "1. **Identify Payment Type** - Immigration fee, tax, passport, etc.\n"
+        "2. **Check Receipt** - Look for your confirmation receipt number\n"
+        "3. **Verify Online**:\n"
+        "   • IRCC payments: Check your application status on Canada.ca\n"
+        "   • CRA payments: Use My Account on CRA website\n"
+        "   • Service Canada: Check Service Canada account\n"
+        "4. **Contact Support**:\n"
+        "   • IRCC: 1-888-242-2342\n"
+        "   • CRA: 1-800-959-5525\n"
+        "5. **Timeline** - Allow 2-5 business days for processing\n\n"
+        "Sources: IRCC, CRA, Service Canada",
+        ["IRCC.ca", "CRA.gc.ca", "ServiceCanada.gc.ca"]
+    ),
+    "move": (
+        "Steps to Move to Canada as a Newcomer:\n\n"
+        "1. **Determine Eligibility** - Express Entry, family sponsorship, PNP, student visa, work permit\n"
+        "2. **Get a Permit** - Apply, pass medical exam, get police certificate, language test\n"
+        "3. **Prepare Documents** - Passport, proof of funds, education credentials, work experience\n"
+        "4. **Before Arrival** - Find housing, research province, open bank account, get SIN\n"
+        "5. **On Arrival** - Register with health authority, open bank account, get SIN, register children in school\n"
+        "6. **First 6 Months** - Take ESL classes, get provincial ID, join programs, network\n\n"
+        "Sources: IRCC, Settlement.org, Canada.ca",
+        ["IRCC.ca", "Settlement.org", "Canada.ca"]
+    ),
+    "job": (
+        "How to Find a Job in Canada:\n\n"
+        "1. **Prepare Documents** - Canadian resume, cover letter, references, credential assessment\n"
+        "2. **Job Search Platforms**:\n"
+        "   • JobBank.gc.ca (government listings)\n"
+        "   • Indeed.ca, LinkedIn.ca, Workopolis\n"
+        "3. **Getting Experience** - Volunteer, internships, apprenticeships\n"
+        "4. **Key Steps** - Tailor resume, write cover letter, network, prepare for interviews\n"
+        "5. **Licensing** - Check if your field requires Canadian certification\n"
+        "6. **Employer Support** - Many offer settlement assistance and mentorship\n\n"
+        "Sources: JobBank.gc.ca, LinkedIn, Indeed, Government of Canada",
+        ["JobBank.gc.ca", "LinkedIn.ca", "Indeed.ca"]
+    ),
+    "education": (
+        "Canadian Education System:\n\n"
+        "K-12 Education:\n"
+        "• Age 4-5: Junior Kindergarten\n"
+        "• Age 5-6: Kindergarten  \n"
+        "• Grades 1-8: Elementary/Middle School\n"
+        "• Grades 9-12: High School\n"
+        "• FREE for Canadian residents\n"
+        "• Compulsory until age 16-18\n\n"
+        "Post-Secondary:\n"
+        "• Universities: 3-4 year degrees, $6,000-$15,000/year (domestic)\n"
+        "• Colleges: 2-3 year diplomas, $2,000-$8,000/year (domestic)\n"
+        "• Trades: 4-5 year apprenticeships\n"
+        "• Financial aid available (grants, loans, scholarships)\n\n"
+        "Registering Your Child:\n"
+        "• Contact local school district\n"
+        "• Proof of residency required\n"
+        "• Language support available\n\n"
+        "Sources: Government of Canada, Provincial Education Ministries",
+        ["EducationCanada.ca", "ServiceCanada.gc.ca"]
+    ),
+    "housing": (
+        "Housing in Canada - A Guide:\n\n"
+        "Types: Apartments, townhouses, single-family homes, shared accommodations\n\n"
+        "Renting:\n"
+        "• Average: $1,200-$2,500/month (varies by city)\n"
+        "• First month + deposit required\n"
+        "• Tenant rights protected by provincial law\n"
+        "• Typical lease: 1 year\n\n"
+        "Buying:\n"
+        "• Down payment: 5-20%\n"
+        "• Get pre-approved for mortgage\n"
+        "• Home inspection recommended\n"
+        "• Closing in 30-60 days\n"
+        "• Mortgage rates: 4-6%\n\n"
+        "Finding Housing:\n"
+        "• Kijiji.ca, Rentals.ca, Zillow.ca, MLS, Facebook groups\n\n"
+        "Additional Costs: Property tax, home insurance, utilities, condo fees\n\n"
+        "Sources: CMHC, Canada.ca, Provincial Housing Authorities",
+        ["CMHC.ca", "Canada.ca", "Rentals.ca"]
+    ),
+    "benefits": (
+        "Government Benefits for Newcomers:\n\n"
+        "Income Support:\n"
+        "• Employment Insurance (EI) - if employed\n"
+        "• Guaranteed Income Supplement (GIS) - if 60+\n"
+        "• Canada Pension Plan (CPP) - retirement at 65+\n"
+        "• Old Age Security (OAS) - 65+\n\n"
+        "Family Benefits:\n"
+        "• Canada Child Benefit (CCB) - monthly per child\n"
+        "• Parental leave benefits (up to 18 months)\n"
+        "• Childcare tax credits\n\n"
+        "Healthcare & Support:\n"
+        "• Provincial health insurance (FREE)\n"
+        "• Settlement programs and language classes (FREE)\n"
+        "• Job search assistance, credential recognition help\n"
+        "• Counseling and community programs\n\n"
+        "How to Apply:\n"
+        "1. Visit ServiceCanada.gc.ca\n"
+        "2. Create My Service account\n"
+        "3. Apply online or visit office\n"
+        "4. Submit required documents\n\n"
+        "Sources: Service Canada, Provincial Ministries",
+        ["ServiceCanada.gc.ca", "BenefitsCanada.ca", "SettlementCanada.ca"]
+    ),
+}
+
+
+@router.post("/ask")
+async def quick_ask(request: dict):
+    """Public Q&A endpoint - no authentication required"""
+    message = request.get("message", "").lower()
+    
+    # Find matching keyword
+    best_match = None
+    best_response = None
+    best_sources = []
+    
+    for keyword, (response_text, sources) in KB_RESPONSES.items():
+        if keyword in message:
+            best_match = keyword
+            best_response = response_text
+            best_sources = sources
+            break
+    
+    # Fallback response
+    if not best_response:
+        best_response = (
+            "Welcome to Maple! 🍁 I can help you with questions about:\n\n"
+            "✅ Making payments to the Government of Canada\n"
+            "✅ Moving to Canada as a newcomer\n"
+            "✅ Finding a job in Canada\n"
+            "✅ Education system and schools\n"
+            "✅ Housing and accommodation\n"
+            "✅ Government benefits and support\n\n"
+            "Try asking me about any of these topics!"
+        )
+        best_sources = ["Canada.ca", "Settlement.org"]
+    
+    return {
+        "response": best_response,
+        "sources": best_sources,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
             system = await proactive_scheduler.inject_into_system_prompt(uid, system)
     except Exception as e:
         logger.warning(f"Failed to inject proactive alert: {e}")
