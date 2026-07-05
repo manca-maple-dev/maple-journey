@@ -22,17 +22,32 @@ from services import email_templates as tpl
 log = logging.getLogger("maplejourney.email")
 
 
+class EmailConfigError(RuntimeError):
+    pass
+
+
+def _env_bool(name: str, default: str) -> bool:
+    return os.environ.get(name, default).strip().lower() == "true"
+
+
+def _required_env(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise EmailConfigError(f"Missing required SMTP env var: {name}")
+    return value
+
+
 def _cfg():
     return {
-        "host": os.environ.get("SMTP_HOST", "mail.spacemail.com"),
-        "port": int(os.environ.get("SMTP_PORT", "465")),
-        "user": os.environ["SMTP_USERNAME"],
-        "password": os.environ["SMTP_PASSWORD"],
-        "use_tls": os.environ.get("SMTP_USE_TLS", "true").lower() == "true",
-        "start_tls": os.environ.get("SMTP_STARTTLS", "false").lower() == "true",
-        "from_email": os.environ.get("SMTP_FROM_EMAIL", "support@boomerbetting.com"),
+        "host": _required_env("SMTP_HOST"),
+        "port": int(os.environ.get("SMTP_PORT", "465").strip()),
+        "user": _required_env("SMTP_USERNAME"),
+        "password": _required_env("SMTP_PASSWORD"),
+        "use_tls": _env_bool("SMTP_USE_TLS", "true"),
+        "start_tls": _env_bool("SMTP_STARTTLS", "false"),
+        "from_email": _required_env("SMTP_FROM_EMAIL"),
         "from_name": os.environ.get("SMTP_FROM_NAME", "MapleJourney"),
-        "reply_to": os.environ.get("SMTP_REPLY_TO", "support@boomerbetting.com"),
+        "reply_to": os.environ.get("SMTP_REPLY_TO", "").strip() or _required_env("SMTP_FROM_EMAIL"),
         "timeout": int(os.environ.get("SMTP_TIMEOUT", "20")),
     }
 
@@ -42,6 +57,15 @@ async def _send_raw(to_email: str, subject: str, html: str, text: str):
         log.warning("aiosmtplib not installed; skipping email send to %s: %s", to_email, subject)
         return
     c = _cfg()
+    log.info(
+        "email smtp config host=%s port=%s use_tls=%s start_tls=%s from_email=%s reply_to=%s",
+        c["host"],
+        c["port"],
+        c["use_tls"],
+        c["start_tls"],
+        c["from_email"],
+        c["reply_to"],
+    )
     msg = EmailMessage()
     msg["From"] = f"{c['from_name']} <{c['from_email']}>"
     msg["To"] = to_email
