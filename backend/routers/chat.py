@@ -61,6 +61,61 @@ def _env_value(*keys: str) -> str:
     return ""
 
 
+def _custom_system_instructions() -> str:
+    """Optional operator-level instruction overrides appended to Maple system prompt."""
+    return _env_value(
+        "MAPLE_CUSTOM_INSTRUCTIONS",
+        "MAPLE_SYSTEM_INSTRUCTIONS",
+        "MAPLE_SYSTEM_PROMPT_APPEND",
+        "SYSTEM_PROMPT_APPEND",
+    )
+
+
+def _wings_instruction(user: dict) -> str:
+    """Translate per-user Wings settings into explicit runtime instructions."""
+    wings = user.get("wings") or {}
+    tone = (wings.get("tone") or "").strip()
+    autonomy = (wings.get("autonomy") or "").strip()
+    goals = [g for g in (wings.get("goals") or []) if isinstance(g, str) and g.strip()]
+
+    chunks = []
+    if tone:
+        chunks.append(f"Tone preference: {tone}.")
+    if autonomy == "ask":
+        chunks.append("Autonomy preference: ask before taking major next-step assumptions.")
+    elif autonomy:
+        chunks.append(f"Autonomy preference: {autonomy}.")
+    if goals:
+        chunks.append("User goals: " + "; ".join(goals[:6]) + ".")
+
+    if not chunks:
+        return ""
+    return "\n\nUSER WINGS PREFERENCES:\n- " + "\n- ".join(chunks)
+
+
+def _preferred_provider_order() -> list[str]:
+    """Choose provider order from env + available keys.
+
+    Defaults to OpenAI first when available so OPENAI_API_KEY works out of the box.
+    """
+    preferred = (_env_value("MAPLE_LLM_PROVIDER", "MODEL_PROVIDER") or "").lower()
+    has_openai = bool(_env_value("OPENAI_API_KEY", "OPENAI_KEY", "OPENAI_API_TOKEN", "EMERGENT_LLM_KEY"))
+    has_anthropic = bool(_env_value("ANTHROPIC_API_KEY"))
+
+    if preferred in {"openai", "anthropic"}:
+        order = [preferred, "anthropic" if preferred == "openai" else "openai"]
+    elif has_openai:
+        order = ["openai", "anthropic"]
+    else:
+        order = ["anthropic", "openai"]
+
+    if not has_openai:
+        order = [p for p in order if p != "openai"]
+    if not has_anthropic:
+        order = [p for p in order if p != "anthropic"]
+    return order
+
+
 async def _openai_chat_response(system_prompt: str, user_message: str) -> str:
     """Direct OpenAI fallback when EMERGENT routing is unavailable.
 
@@ -415,6 +470,17 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
                          "X-Maple-Credits": str(credit_balance), "X-Maple-Cost": str(cost)}
             )
 
+    answer = ""
+    used_provider = ""
+
+    instruction_sources = [
+        "profile" if profile_summary(user) else "",
+        "memory" if memory_context else "",
+        "community" if community_context else "",
+        "rag" if rag_context else "",
+        "wings" if _wings_instruction(user) else "",
+        "custom" if custom_instructions else "",
+    ]
     common_headers = {
         "Cache-Control": "no-cache",
         "X-Accel-Buffering": "no",
@@ -422,6 +488,8 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
         "X-Maple-Credits": str(credit_balance),
         "X-Maple-Cost": str(cost),
         "X-Maple-Complexity": complexity,
+        "X-Maple-Instruction-Sources": ",".join([item for item in instruction_sources if item]),
+        "X-Maple-Provider": used_provider,
     }
 
     # Debit credits before processing (atomic — wallet already checked above)
@@ -466,6 +534,10 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
 
     # Build the sovereign system prompt with profile + RAG context + live web data
     system = SOVEREIGN_SYSTEM_PROMPT + profile_summary(user) + memory_context + community_context + rag_context
+    system += _wings_instruction(user)
+    custom_instructions = _custom_system_instructions()
+    if custom_instructions:
+        system += "\n\nOPERATOR CUSTOM INSTRUCTIONS:\n" + custom_instructions
     system += _quality_directive(complexity, tier)
     system += conversation_language_instruction(user)
     system += (
@@ -496,17 +568,25 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.debug(f"Proactive scheduler not available: {e}")
 
-    # Generate the actual assistant response. If the primary model is unavailable,
-    # fall back to the lower-level model helpers so the endpoint never returns null.
-    answer = await _anthropic_chat_response(system, sanitized_message)
-    if not answer:
-        answer = await _openai_chat_response(system, sanitized_message)
+    # Generate the actual assistant response with deterministic provider order.
+    # This ensures OPENAI_API_KEY can be primary instead of always falling back.
+    provider_order = _preferred_provider_order()
+    for provider in provider_order:
+        if provider == "openai":
+            answer = await _openai_chat_response(system, sanitized_message)
+        elif provider == "anthropic":
+            answer = await _anthropic_chat_response(system, sanitized_message)
+        if answer:
+            used_provider = provider
+            break
     if not answer:
         answer = grounded_fallback_response(sanitized_message, rag_context)
 
-    answer = enforce_citation_policy(answer)
+    answer, citation_ok, citation_reason = enforce_citation_policy(answer)
+    if not citation_ok:
+        answer = attach_verified_citations_if_missing(answer, rag_context)
+        answer, citation_ok, citation_reason = enforce_citation_policy(answer)
     answer = filter_response_for_leaks(answer)
-    answer = attach_verified_citations_if_missing(answer, rag_context)
 
     if not answer.strip():
         answer = "I’m unable to generate a reliable answer right now. Please try again in a moment."
