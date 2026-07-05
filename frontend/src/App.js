@@ -23,6 +23,7 @@ const Pricing = lazy(() => import("@/pages/marketing/Pricing"));
 const About = lazy(() => import("@/pages/marketing/About"));
 const Contact = lazy(() => import("@/pages/marketing/Contact"));
 const AutoSignup = lazy(() => import("@/pages/marketing/AutoSignup"));
+const Dashboard = lazy(() => import("@/pages/marketing/Dashboard"));
 const PrivacyPolicy = lazy(() => import("@/pages/marketing/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("@/pages/marketing/TermsOfService"));
 const CookiePolicy = lazy(() => import("@/pages/marketing/CookiePolicy"));
@@ -73,6 +74,7 @@ function App() {
                   <Route path="/about" element={<About />} />
                   <Route path="/contact" element={<Contact />} />
                   <Route path="/form" element={<AutoSignup />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />
                   <Route path="/terms" element={<TermsOfService />} />
                   <Route path="/cookies" element={<CookiePolicy />} />

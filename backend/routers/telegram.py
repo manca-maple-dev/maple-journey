@@ -136,6 +136,22 @@ async def get_latest_collections(
     ]
 
 
+@router.get("/latest/public")
+async def get_latest_collections_public(
+    limit: int = 10,
+):
+    """Get latest collected data entries (Public - no auth required)"""
+    data = await telegram_collector.collected_data.find(
+        {"status": "completed"},
+        sort=[("collected_at", -1)],
+    ).to_list(limit)
+
+    return [
+        {**d, "_id": str(d["_id"]), "collected_at": d.get("collected_at", "").isoformat() if d.get("collected_at") else ""}
+        for d in data
+    ]
+
+
 @router.post("/export")
 async def export_data(
     request: DataExportRequest,
