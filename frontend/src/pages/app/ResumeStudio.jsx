@@ -9,51 +9,118 @@ import {
   ArrowRight,
   Download,
   BadgeCheck,
+  Grid,
+  List,
 } from "lucide-react";
 import { useMaple } from "@/context/MapleContext";
 
 const TEMPLATES = [
+  // Modern Category
   {
     id: "north-star",
     name: "North Star",
+    category: "Modern",
     vibe: "Clean executive",
     accent: "bg-blue-600",
-    preview: "A strong top summary with structured experience blocks.",
+    preview: "Strong header with structured sections and clean spacing.",
+    layout: "single",
+    colors: "blue",
   },
   {
     id: "harbour",
     name: "Harbour",
-    vibe: "Modern newcomer",
+    category: "Modern",
+    vibe: "Two-column sidebar",
     accent: "bg-teal-600",
-    preview: "Balanced design for both service and office roles.",
-  },
-  {
-    id: "summit",
-    name: "Summit",
-    vibe: "ATS-first",
-    accent: "bg-zinc-700",
-    preview: "Minimal layout optimized for applicant tracking systems.",
-  },
-  {
-    id: "maple-pro",
-    name: "Maple Pro",
-    vibe: "Bold premium",
-    accent: "bg-brand-600",
-    preview: "Confident profile presentation with measurable impact focus.",
-  },
-  {
-    id: "cedar",
-    name: "Cedar",
-    vibe: "Classic professional",
-    accent: "bg-emerald-700",
-    preview: "Traditional recruiter-friendly style for broad industries.",
+    preview: "Skills sidebar + full-width experience. Perfect for showcasing depth.",
+    layout: "two-column",
+    colors: "teal",
   },
   {
     id: "aurora",
     name: "Aurora",
-    vibe: "Creative clean",
+    category: "Modern",
+    vibe: "Creative professional",
     accent: "bg-fuchsia-700",
-    preview: "Subtle color accents for design, media, and product roles.",
+    preview: "Elegant color accents with modern spacing for tech & design roles.",
+    layout: "single",
+    colors: "fuchsia",
+  },
+  
+  // Classic Category
+  {
+    id: "cedar",
+    name: "Cedar",
+    category: "Classic",
+    vibe: "Traditional recruiter-friendly",
+    accent: "bg-emerald-700",
+    preview: "Time-tested format trusted by hiring managers across industries.",
+    layout: "single",
+    colors: "emerald",
+  },
+  {
+    id: "summit",
+    name: "Summit",
+    category: "Classic",
+    vibe: "ATS-optimized",
+    accent: "bg-zinc-700",
+    preview: "Zero formatting—maximum compatibility with application systems.",
+    layout: "single",
+    colors: "zinc",
+  },
+  {
+    id: "maple-pro",
+    name: "Maple Pro",
+    category: "Classic",
+    vibe: "Bold professional",
+    accent: "bg-brand-600",
+    preview: "Confident design emphasizing achievements and measurable impact.",
+    layout: "single",
+    colors: "brand",
+  },
+  
+  // Compact Category
+  {
+    id: "express",
+    name: "Express",
+    category: "Compact",
+    vibe: "Single-page density",
+    accent: "bg-orange-600",
+    preview: "Dense but scannable—fits everything meaningful on one page.",
+    layout: "compact",
+    colors: "orange",
+  },
+  {
+    id: "catalyst",
+    name: "Catalyst",
+    category: "Compact",
+    vibe: "Impact-first bullets",
+    accent: "bg-red-600",
+    preview: "Abbreviated experience with bold metrics upfront. Fast hiring manager scan.",
+    layout: "compact",
+    colors: "red",
+  },
+  
+  // Premium Category
+  {
+    id: "prestige",
+    name: "Prestige",
+    category: "Premium",
+    vibe: "Executive showcase",
+    accent: "bg-slate-900",
+    preview: "Sophisticated with subtle accents. Perfect for senior/leadership roles.",
+    layout: "two-column",
+    colors: "slate",
+  },
+  {
+    id: "velocity",
+    name: "Velocity",
+    category: "Premium",
+    vibe: "Tech-forward",
+    accent: "bg-cyan-600",
+    preview: "Modern tech aesthetic with clear information hierarchy.",
+    layout: "two-column",
+    colors: "cyan",
   },
 ];
 
@@ -90,6 +157,8 @@ export default function ResumeStudio() {
   const { openWith } = useMaple();
   const [templateId, setTemplateId] = useState("maple-pro");
   const [copied, setCopied] = useState(false);
+  const [viewMode, setViewMode] = useState("grid"); // grid or list
+
   const [resume, setResume] = useState({
     name: "Your Name",
     headline: "Newcomer professional in Canada | Customer Service | Operations",
@@ -122,6 +191,16 @@ export default function ResumeStudio() {
     ],
   });
 
+  // Group templates by category
+  const templatesByCategory = useMemo(() => {
+    const grouped = {};
+    TEMPLATES.forEach((t) => {
+      if (!grouped[t.category]) grouped[t.category] = [];
+      grouped[t.category].push(t);
+    });
+    return grouped;
+  }, []);
+
   const selectedTemplate = useMemo(
     () => TEMPLATES.find((t) => t.id === templateId) || TEMPLATES[0],
     [templateId]
@@ -137,6 +216,174 @@ export default function ResumeStudio() {
     if (resume.experience.every((e) => e.bullets.filter(Boolean).length >= 2)) score += 30;
     return score;
   }, [resume]);
+
+  // Render preview based on template layout
+  const renderTemplatePreview = () => {
+    const layout = selectedTemplate.layout;
+    const headerClasses = {
+      blue: "border-blue-600 text-blue-600",
+      teal: "border-teal-600 text-teal-600",
+      fuchsia: "border-fuchsia-600 text-fuchsia-600",
+      emerald: "border-emerald-600 text-emerald-600",
+      zinc: "border-zinc-600 text-zinc-600",
+      brand: "border-brand-600 text-brand-600",
+      orange: "border-orange-600 text-orange-600",
+      red: "border-red-600 text-red-600",
+      slate: "border-slate-900 text-slate-900",
+      cyan: "border-cyan-600 text-cyan-600",
+    }[selectedTemplate.colors];
+
+    // Two-column layout (sidebar)
+    if (layout === "two-column") {
+      return (
+        <article className="rounded-2xl border border-border bg-background p-6">
+          <div className="grid grid-cols-[160px_1fr] gap-6">
+            {/* Left Sidebar */}
+            <div className="space-y-5 border-r border-border pr-4">
+              <div>
+                <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground opacity-60">Skills</h5>
+                <div className="mt-2 space-y-1">
+                  {resume.skills.split(",").slice(0, 3).map((skill, i) => (
+                    <p key={i} className="text-xs text-foreground">{skill.trim()}</p>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground opacity-60">Contact</h5>
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-foreground break-all">{resume.email}</p>
+                  <p className="text-xs text-foreground">{resume.phone}</p>
+                  <p className="text-xs text-foreground">{resume.location}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Content */}
+            <div className="space-y-4">
+              <div className={`border-b-2 ${headerClasses} pb-3`}>
+                <h3 className="font-display text-2xl font-bold">{resume.name}</h3>
+                <p className="mt-1 text-sm font-medium">{resume.headline}</p>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Summary</h4>
+                <p className="mt-2 text-xs leading-relaxed text-foreground">{resume.summary}</p>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Experience</h4>
+                <div className="mt-3 space-y-3">
+                  {resume.experience.slice(0, 2).map((exp) => (
+                    <div key={`${exp.title}-${exp.company}`}>
+                      <div className="flex justify-between">
+                        <p className="text-xs font-semibold">{exp.title}</p>
+                        <p className="text-xs text-muted-foreground">{exp.period}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{exp.company}</p>
+                      <ul className="mt-1 list-disc space-y-0.5 pl-3 text-xs">
+                        {exp.bullets.slice(0, 1).map((b, i) => (
+                          <li key={i} className="text-foreground">{b}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold">{resume.education}</p>
+              </div>
+            </div>
+          </div>
+        </article>
+      );
+    }
+
+    // Compact layout (dense single-page)
+    if (layout === "compact") {
+      return (
+        <article className="rounded-2xl border border-border bg-background p-5">
+          <header className={`border-b-2 ${headerClasses} pb-2`}>
+            <h3 className="font-display text-lg font-bold">{resume.name}</h3>
+            <p className="text-xs font-medium text-foreground/80">{resume.headline}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{resume.email} • {resume.phone} • {resume.location}</p>
+          </header>
+
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            <div>
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Summary</h4>
+              <p className="mt-1 text-xs leading-tight text-foreground line-clamp-2">{resume.summary}</p>
+            </div>
+            <div>
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Skills</h4>
+              <p className="mt-1 text-xs text-foreground line-clamp-2">{resume.skills}</p>
+            </div>
+          </div>
+
+          <div className="mt-2">
+            <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Experience</h4>
+            <div className="mt-1 space-y-1">
+              {resume.experience.slice(0, 2).map((exp) => (
+                <div key={`${exp.title}-${exp.company}`} className="text-xs">
+                  <p className="font-semibold">{exp.title} @ {exp.company} ({exp.period})</p>
+                  <p className="text-muted-foreground line-clamp-1">{exp.bullets[0]}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </article>
+      );
+    }
+
+    // Default single-column layout
+    return (
+      <article className="rounded-2xl border border-border bg-background p-6 space-y-4">
+        <header className={`border-b-2 ${headerClasses} pb-3`}>
+          <h3 className="font-display text-2xl font-bold tracking-tight">{resume.name}</h3>
+          <p className="mt-1 text-sm font-medium">{resume.headline}</p>
+          <p className="mt-2 text-xs text-muted-foreground">{resume.email} • {resume.phone} • {resume.location}</p>
+        </header>
+
+        <section>
+          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-70">Professional Summary</h4>
+          <p className="mt-2 text-sm leading-relaxed">{resume.summary}</p>
+        </section>
+
+        <section>
+          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-70">Professional Experience</h4>
+          <div className="mt-2 space-y-4">
+            {resume.experience.map((exp) => (
+              <div key={`${exp.title}-${exp.company}`} className="border-l-2 border-border pl-3">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
+                  <div>
+                    <p className="text-sm font-bold">{exp.title}</p>
+                    <p className="text-xs font-medium text-muted-foreground">{exp.company}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 sm:mt-0">{exp.period}</p>
+                </div>
+                <ul className="mt-1.5 space-y-1 list-disc pl-4 marker:text-xs">
+                  {exp.bullets.map((b, i) => (
+                    <li key={i} className="text-sm">{b}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <div className="grid grid-cols-2 gap-4">
+          <section>
+            <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-70">Skills</h4>
+            <p className="mt-2 text-sm">{resume.skills}</p>
+          </section>
+          <section>
+            <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground opacity-70">Education</h4>
+            <p className="mt-2 text-sm">{resume.education}</p>
+          </section>
+        </div>
+      </article>
+    );
+  };
 
   const updateExpBullet = (index, bulletIndex, value) => {
     setResume((prev) => {
@@ -175,13 +422,13 @@ export default function ResumeStudio() {
               <p className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
                 <Sparkles className="h-3.5 w-3.5" /> Maple Resume Studio
               </p>
-              <h1 className="mt-3 font-display text-2xl font-bold sm:text-3xl">Build resume templates people remember</h1>
+              <h1 className="mt-3 font-display text-2xl font-bold sm:text-3xl">Professional resume builder for Canada</h1>
               <p className="mt-2 max-w-2xl text-sm text-white/90">
-                Pick a clean template, edit every section in real time, and use Maple to rewrite your profile for stronger recruiter impact.
+                Choose from 10 beautifully formatted templates, customize every detail in real-time, and use Maple AI to strengthen your impact. Built specifically for Canadian hiring standards and ATS compatibility.
               </p>
             </div>
             <div className="min-w-[220px] rounded-2xl border border-white/20 bg-white/10 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/80">ATS readiness</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/80">ATS Readiness Score</p>
               <p className="mt-2 text-3xl font-bold">{completeness}%</p>
               <p className="text-xs text-white/80">Aim for 85%+ before applying.</p>
             </div>
@@ -192,36 +439,97 @@ export default function ResumeStudio() {
       <section className="grid gap-5 lg:grid-cols-[1.05fr,0.95fr]">
         <div className="space-y-5">
           <div className="rounded-2xl border border-border bg-card p-5">
-            <div className="mb-3 flex items-center gap-2">
-              <LayoutTemplate className="h-4 w-4 text-brand-600" />
-              <h2 className="font-display text-lg font-semibold">Choose a template</h2>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <LayoutTemplate className="h-4 w-4 text-brand-600" />
+                <h2 className="font-display text-lg font-semibold">Choose your template</h2>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("grid")}
+                  className={`p-1.5 rounded-lg transition-colors ${viewMode === "grid" ? "bg-brand-100 text-brand-600 dark:bg-brand-500/20" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  <Grid className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                  className={`p-1.5 rounded-lg transition-colors ${viewMode === "list" ? "bg-brand-100 text-brand-600 dark:bg-brand-500/20" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  <List className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {TEMPLATES.map((t) => {
-                const active = t.id === templateId;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTemplateId(t.id)}
-                    className={`rounded-2xl border p-3 text-left transition-all ${
-                      active
-                        ? "border-brand-500 bg-brand-50 shadow-sm dark:bg-brand-500/10"
-                        : "border-border bg-background hover:border-brand-300"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold">{t.name}</p>
-                        <p className="text-xs text-muted-foreground">{t.vibe}</p>
-                      </div>
-                      <span className={`h-3 w-3 rounded-full ${t.accent}`} />
+
+            {viewMode === "grid" ? (
+              <div className="space-y-6">
+                {Object.entries(templatesByCategory).map(([category, templates]) => (
+                  <div key={category}>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">{category}</h3>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {templates.map((t) => {
+                        const active = t.id === templateId;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setTemplateId(t.id)}
+                            className={`rounded-2xl border p-3 text-left transition-all group ${
+                              active
+                                ? "border-brand-500 bg-brand-50 shadow-md dark:bg-brand-500/10"
+                                : "border-border bg-background hover:border-brand-300 hover:shadow-sm"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-semibold">{t.name}</p>
+                                  <span className={`h-2.5 w-2.5 rounded-full ${t.accent}`} />
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">{t.vibe}</p>
+                              </div>
+                              {active && <Check className="h-4 w-4 text-brand-600 flex-shrink-0" />}
+                            </div>
+                            <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{t.preview}</p>
+                          </button>
+                        );
+                      })}
                     </div>
-                    <p className="mt-2 text-xs text-muted-foreground">{t.preview}</p>
-                  </button>
-                );
-              })}
-            </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {Object.entries(templatesByCategory).map(([category, templates]) => (
+                  <div key={category} className="space-y-1">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-2">{category}</h3>
+                    {templates.map((t) => {
+                      const active = t.id === templateId;
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setTemplateId(t.id)}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg border transition-all text-left ${
+                            active
+                              ? "border-brand-500 bg-brand-50 dark:bg-brand-500/10"
+                              : "border-transparent bg-background hover:border-border"
+                          }`}
+                        >
+                          <span className={`h-3 w-3 rounded-full flex-shrink-0 ${t.accent}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold">{t.name}</p>
+                            <p className="text-xs text-muted-foreground">{t.vibe}</p>
+                          </div>
+                          {active && <Check className="h-4 w-4 text-brand-600 flex-shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-5">
@@ -290,50 +598,19 @@ export default function ResumeStudio() {
 
         <div className="space-y-5">
           <div className="rounded-2xl border border-border bg-card p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-display text-lg font-semibold">Live preview - {selectedTemplate.name}</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="font-display text-lg font-semibold">{selectedTemplate.name} Preview</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">{selectedTemplate.category}</p>
+              </div>
               <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-muted-foreground">{selectedTemplate.vibe}</span>
             </div>
 
-            <article className="rounded-2xl border border-border bg-background p-5">
-              <header className="border-b border-border pb-3">
-                <h3 className="font-display text-xl font-bold tracking-tight">{resume.name}</h3>
-                <p className="mt-1 text-sm font-medium text-brand-700 dark:text-brand-300">{resume.headline}</p>
-                <p className="mt-2 text-xs text-muted-foreground">{resume.email} • {resume.phone} • {resume.location}</p>
-              </header>
-
-              <section className="pt-3">
-                <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Summary</h4>
-                <p className="mt-1 text-sm leading-relaxed">{resume.summary}</p>
-              </section>
-
-              <section className="pt-3">
-                <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Experience</h4>
-                <div className="mt-2 space-y-3">
-                  {resume.experience.map((exp) => (
-                    <div key={`${exp.title}-${exp.company}`}>
-                      <p className="text-sm font-semibold">{exp.title} - {exp.company}</p>
-                      <p className="text-xs text-muted-foreground">{exp.period}</p>
-                      <ul className="mt-1 list-disc space-y-1 pl-4 text-sm">
-                        {exp.bullets.map((b, bi) => (
-                          <li key={`${exp.company}-preview-${bi}`}>{b}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section className="pt-3">
-                <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Skills</h4>
-                <p className="mt-1 text-sm">{resume.skills}</p>
-              </section>
-
-              <section className="pt-3">
-                <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Education</h4>
-                <p className="mt-1 text-sm">{resume.education}</p>
-              </section>
-            </article>
+            <div className="overflow-hidden rounded-2xl border border-border">
+              <div className="bg-foreground/5 p-6 max-h-[600px] overflow-y-auto">
+                {renderTemplatePreview()}
+              </div>
+            </div>
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-5">

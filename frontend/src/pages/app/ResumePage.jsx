@@ -1,14 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ResumeMaker from "@/components/resume/ResumeMaker";
+import ResumeStudio from "./ResumeStudio";
 
 export default function ResumePage() {
   const navigate = useNavigate();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div className="flex items-center gap-3">
+    <div className="mx-auto w-full max-w-7xl px-0">
+      <div className="flex items-center gap-3 px-4 py-4 sm:px-6 sm:py-6">
         <Button
           variant="ghost"
           size="sm"
@@ -19,16 +19,19 @@ export default function ResumePage() {
         </Button>
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-            Resume Maker
+            Maple Resume Studio
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Build a professional resume tailored for Canadian employers. 
-            Choose your template and export to PDF.
+            Professional template-based resume builder for Canadian employers. 
+            Pick a design, customize in real-time, and export to PDF.
           </p>
         </div>
       </div>
 
-      <ResumeMaker />
+      <div className="px-4 sm:px-6">
+        <ResumeStudio />
+      </div>
     </div>
   );
 }
+
