@@ -496,6 +496,34 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.debug(f"Proactive scheduler not available: {e}")
 
+    # Generate the actual assistant response. If the primary model is unavailable,
+    # fall back to the lower-level model helpers so the endpoint never returns null.
+    answer = await _anthropic_chat_response(system, sanitized_message)
+    if not answer:
+        answer = await _openai_chat_response(system, sanitized_message)
+    if not answer:
+        answer = grounded_fallback_response(sanitized_message, rag_context)
+
+    answer = enforce_citation_policy(answer, rag_context)
+    answer = filter_response_for_leaks(answer)
+    answer = attach_verified_citations_if_missing(answer, rag_context)
+
+    await db.chat_messages.insert_one(
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": uid,
+            "session_id": session_id,
+            "role": "assistant",
+            "content": answer,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+
+    async def stream_answer():
+        yield answer
+
+    return StreamingResponse(stream_answer(), media_type="text/plain", headers=common_headers)
+
 
 # ============================================================================
 # PUBLIC /ask ENDPOINT (GPT-powered, no auth required)
