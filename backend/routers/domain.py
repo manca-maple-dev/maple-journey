@@ -19,6 +19,91 @@ from services.update_pipeline import run_update_cycle
 router = APIRouter(tags=["domain"])
 
 
+FALLBACK_BENEFITS = [
+    {
+        "id": "benefit_ccb",
+        "title": "Canada Child Benefit (CCB)",
+        "category": "childcare",
+        "description": "Tax-free monthly payment to help with the cost of raising children under 18.",
+        "eligibility": "Parents/guardians who are residents for tax purposes.",
+        "coverage": "Up to $7,787/year per child",
+        "cta_text": "Learn More",
+        "url": "https://www.canada.ca/en/revenue-agency/services/child-family-benefits/canada-child-benefit-overview.html",
+        "is_new": True,
+    },
+    {
+        "id": "benefit_gst",
+        "title": "GST/HST Credit",
+        "category": "financial",
+        "description": "Quarterly tax-free payment to offset sales tax for low and modest-income residents.",
+        "eligibility": "Residents age 19+ who file taxes.",
+        "coverage": "Quarterly payments based on household income",
+        "cta_text": "Learn More",
+        "url": "https://www.canada.ca/en/revenue-agency/services/child-family-benefits/gsthstc-eligibility.html",
+    },
+    {
+        "id": "benefit_ei",
+        "title": "Employment Insurance (EI)",
+        "category": "employment",
+        "description": "Temporary income support if you lose your job through no fault of your own.",
+        "eligibility": "Workers with enough insurable hours and valid status.",
+        "coverage": "Typically up to 55% of insurable earnings",
+        "cta_text": "Learn More",
+        "url": "https://www.canada.ca/en/services/benefits/ei.html",
+    },
+    {
+        "id": "benefit_settlement",
+        "title": "IRCC-funded Settlement Services",
+        "category": "social",
+        "description": "Free language classes, employment support, and newcomer integration services.",
+        "eligibility": "Permanent residents and protected persons.",
+        "coverage": "Free programs across Canada",
+        "cta_text": "Find Services",
+        "url": "https://ircc.canada.ca/english/newcomers/services/index.asp",
+    },
+]
+
+
+FALLBACK_LEGAL_RESOURCES = [
+    {
+        "id": "legal_lao",
+        "name": "Legal Aid Ontario",
+        "type": "Immigration",
+        "province": "ON",
+        "cost": "Free",
+        "description": "Immigration and refugee legal help for eligible low-income clients.",
+        "contact": "1-800-668-8258",
+        "url": "https://www.legalaid.on.ca/services/immigration-and-refugee-law/",
+        "source_kind": "legal-aid",
+        "freshness_label": "Verified source",
+    },
+    {
+        "id": "legal_labc",
+        "name": "Legal Aid BC",
+        "type": "Refugee",
+        "province": "BC",
+        "cost": "Free",
+        "description": "Refugee and immigration legal representation in British Columbia.",
+        "contact": "1-866-577-2525",
+        "url": "https://legalaid.bc.ca/",
+        "source_kind": "legal-aid",
+        "freshness_label": "Verified source",
+    },
+    {
+        "id": "legal_justice",
+        "name": "Department of Justice - Legal Aid",
+        "type": "General",
+        "province": "National",
+        "cost": "Free",
+        "description": "Federal legal aid information and links to provincial legal aid plans.",
+        "contact": "1-800-O-CANADA",
+        "url": "https://www.justice.gc.ca/eng/fund-fina/gov-gouv/aid-aide.html",
+        "source_kind": "government",
+        "freshness_label": "Verified source",
+    },
+]
+
+
 def _normalize_text(value: str) -> str:
     return (value or "").strip().lower()
 
@@ -282,8 +367,15 @@ async def status_check(user: dict = Depends(get_current_user)):
 @router.get("/benefits")
 @router.get("/domain/benefits")
 async def list_benefits(user: dict = Depends(get_current_user)):
-    items = await db.benefits.find({}).to_list(200)
-    return [clean(i) for i in items]
+    try:
+        items = await db.benefits.find({}).to_list(200)
+        cleaned = [clean(i) for i in items]
+        if cleaned:
+            return cleaned
+    except Exception:
+        # Fail-open so user-facing benefits page still renders when DB is degraded.
+        pass
+    return FALLBACK_BENEFITS
 
 
 # ----- Resources (public) -----
@@ -296,10 +388,14 @@ async def list_resources():
 # ----- Legal help (free / low-cost legal aid) -----
 @router.get("/legal-resources")
 async def list_legal_resources(user: dict = Depends(get_current_user)):
-    items = await db.legal_resources.find({"source_kind": "legal-aid"}).to_list(200)
+    try:
+        items = await db.legal_resources.find({"source_kind": "legal-aid"}).to_list(200)
+    except Exception:
+        items = []
+
     if not items:
-        # Fallback: return empty with helpful message instead of error
-        return []
+        items = [item for item in FALLBACK_LEGAL_RESOURCES if item.get("source_kind") == "legal-aid"]
+
     ranked = []
     for item in items:
         cleaned = clean(item)
