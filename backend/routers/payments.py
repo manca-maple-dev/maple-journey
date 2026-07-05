@@ -112,7 +112,7 @@ async def create_checkout_session(body: CheckoutIn, request: Request, user: dict
     api_base = str(request.base_url).rstrip("/")
     app_base = _frontend_base_url(body.origin_url)
     webhook_url = f"{api_base}/api/webhook/stripe"
-    success_url = f"{app_base}/app/plans?session_id={{CHECKOUT_SESSION_ID}}"
+    success_url = f"{app_base}/app/plans/success?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{app_base}/app/plans"
     metadata = {"user_id": str(user["_id"]), "plan_id": plan_id, "source": "app_upgrade"}
 

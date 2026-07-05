@@ -39,6 +39,7 @@ const Communities = lazy(() => import("@/pages/app/Communities"));
 const MapleChat = lazy(() => import("@/pages/app/Assistant"));
 const Onboarding = lazy(() => import("@/pages/app/Onboarding"));
 const PlanSelection = lazy(() => import("@/pages/app/PlanSelection"));
+const PlanSuccess = lazy(() => import("@/pages/app/PlanSuccess"));
 const Profile = lazy(() => import("@/pages/app/Profile"));
 const AppAnnouncements = lazy(() => import("@/pages/app/Announcements"));
 const Benefits = lazy(() => import("@/pages/app/Benefits"));
@@ -92,6 +93,7 @@ function App() {
                   <Route index element={<MapleHome />} />
                   <Route path="onboarding" element={<Onboarding />} />
                   <Route path="plans" element={<PlanSelection />} />
+                  <Route path="plans/success" element={<PlanSuccess />} />
                   <Route path="chat" element={<MapleChat />} />
                   <Route path="assessment" element={<FeatureGate feature="questionnaire"><Questionnaire /></FeatureGate>} />
                   <Route path="jobs" element={<FeatureGate feature="jobs"><Jobs /></FeatureGate>} />
