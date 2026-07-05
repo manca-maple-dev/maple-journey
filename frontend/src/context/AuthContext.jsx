@@ -39,7 +39,11 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     try {
       const { data } = await api.post("/auth/login", { email, password });
-      localStorage.setItem("mj_token", data.token);
+      const token = data?.token || data?.access_token || "";
+      if (!token) {
+        return { ok: false, error: "Login succeeded but no auth token was returned." };
+      }
+      localStorage.setItem("mj_token", token);
       setUser(data.user);
       await loadFeatures();
       return { ok: true, user: data.user };
@@ -51,7 +55,11 @@ export function AuthProvider({ children }) {
   const register = async (payload) => {
     try {
       const { data } = await api.post("/auth/register", payload);
-      localStorage.setItem("mj_token", data.token);
+      const token = data?.token || data?.access_token || "";
+      if (!token) {
+        return { ok: false, error: "Registration succeeded but no auth token was returned." };
+      }
+      localStorage.setItem("mj_token", token);
       setUser(data.user);
       await loadFeatures();
       return { ok: true, user: data.user };

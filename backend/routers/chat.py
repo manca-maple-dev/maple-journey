@@ -506,7 +506,7 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
 
     answer = enforce_citation_policy(answer)
     answer = filter_response_for_leaks(answer)
-        answer = attach_verified_citations_if_missing(answer, rag_context)
+    answer = attach_verified_citations_if_missing(answer, rag_context)
 
     if not answer.strip():
         answer = "I’m unable to generate a reliable answer right now. Please try again in a moment."

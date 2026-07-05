@@ -158,7 +158,7 @@ export default function Jobs() {
             <select
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500/40"
             >
               <option>Toronto</option>
               <option>Vancouver</option>
@@ -176,7 +176,7 @@ export default function Jobs() {
             <select
               value={jobType}
               onChange={(e) => setJobType(e.target.value)}
-              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500/40"
             >
               <option value="">All types</option>
               <option>Full-time</option>
@@ -191,7 +191,7 @@ export default function Jobs() {
             <select
               value={experienceLevel}
               onChange={(e) => setExperienceLevel(e.target.value)}
-              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500/40"
             >
               <option value="">All levels</option>
               <option>entry</option>
@@ -206,7 +206,7 @@ export default function Jobs() {
             <select
               value={daysPosted}
               onChange={(e) => setDaysPosted(parseInt(e.target.value))}
-              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500/40"
             >
               <option value={1}>Today</option>
               <option value={7}>Last 7 days</option>

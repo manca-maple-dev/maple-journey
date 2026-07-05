@@ -411,7 +411,7 @@ export default function MapleHome() {
             className="w-full rounded-xl border-2 border-maple bg-gradient-to-r from-maple to-maple/80 hover:from-maple/90 hover:to-maple/70 text-white px-4 py-3 font-semibold transition-all shadow-sm hover:shadow-md"
           >
             <FileText className="mr-2 inline h-4 w-4" />
-            Build Your Resume Now
+            Get Your Resume Now
           </button>
           <p className="text-xs text-muted-foreground mt-2 text-center">
             Use your profile info + deadlines to create a professional resume for job applications

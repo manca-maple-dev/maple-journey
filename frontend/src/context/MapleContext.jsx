@@ -61,16 +61,56 @@ export function MapleProvider({ children }) {
     setAssistantPhase("reasoning");
     try {
       const token = localStorage.getItem("mj_token");
+      if (!token) {
+        setMessages((m) => {
+          const copy = [...m];
+          copy[copy.length - 1] = {
+            role: "assistant",
+            content: "Your session expired. Please log in again to chat with Maple.",
+          };
+          return copy;
+        });
+        return;
+      }
       const res = await fetch(`${API}/assistant/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ session_id: sessionId || null, message: msg }),
       });
+      if (!res.ok) {
+        let detail = "Maple is having trouble responding right now. Please try again.";
+        try {
+          const errJson = await res.json();
+          if (typeof errJson?.detail === "string") detail = errJson.detail;
+        } catch {
+          // ignore JSON parse errors and use default message
+        }
+        if (res.status === 401) {
+          detail = "Your session expired. Please log in again to continue chatting.";
+        }
+        setMessages((m) => {
+          const copy = [...m];
+          copy[copy.length - 1] = { role: "assistant", content: detail };
+          return copy;
+        });
+        return;
+      }
       const sid = res.headers.get("X-Session-Id");
       if (sid && sid !== sessionId) {
         loadedRef.current = true;
         setSessionId(sid);
         localStorage.setItem("mj_chat_session", sid);
+      }
+      if (!res.body) {
+        setMessages((m) => {
+          const copy = [...m];
+          copy[copy.length - 1] = {
+            role: "assistant",
+            content: "Maple responded with an empty stream. Please try again.",
+          };
+          return copy;
+        });
+        return;
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
