@@ -50,8 +50,11 @@ async def _init_telegram_services() -> None:
             telegram.telegram_collector.bot_token = telegram_bot_token
             app.telegram_app = await telegram.telegram_collector.initialize_app()
 
-            # Start bot polling
-            asyncio.create_task(app.telegram_app.run_polling())
+            # Start bot polling using async lifecycle methods that are safe
+            # inside FastAPI's already-running event loop.
+            await app.telegram_app.initialize()
+            await app.telegram_app.start()
+            await app.telegram_app.updater.start_polling()
             logger.info("✅ Telegram bot initialized and polling started")
 
             # Initialize monitoring service
@@ -258,7 +261,10 @@ async def _shutdown():
     # Cleanup Telegram bot
     if hasattr(app.state, 'telegram_app'):
         try:
+            if getattr(app.state.telegram_app, "updater", None):
+                await app.state.telegram_app.updater.stop()
             await app.state.telegram_app.stop()
+            await app.state.telegram_app.shutdown()
             logger.info("✅ Telegram bot stopped")
         except Exception as e:
             logger.warning(f"Error stopping Telegram bot: {e}")
