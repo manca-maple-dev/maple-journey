@@ -96,9 +96,9 @@ function App() {
                   <Route path="plans" element={<PlanSelection />} />
                   <Route path="plans/success" element={<PlanSuccess />} />
                   <Route path="chat" element={<MapleChat />} />
-                  <Route path="assessment" element={<FeatureGate feature="questionnaire"><ResumeStudio /></FeatureGate>} />
+                  <Route path="assessment" element={<FeatureGate feature="questionnaire"><Questionnaire /></FeatureGate>} />
                   <Route path="jobs" element={<FeatureGate feature="jobs"><Jobs /></FeatureGate>} />
-                  <Route path="resume" element={<FeatureGate feature="questionnaire"><ResumeStudio /></FeatureGate>} />
+                  <Route path="resume" element={<ResumeStudio />} />
                   <Route path="accessibilities" element={<FeatureGate feature="accessibilities"><Accessibilities /></FeatureGate>} />
                   <Route path="legal" element={<FeatureGate feature="legal"><LegalHelp /></FeatureGate>} />
                   <Route path="communities" element={<FeatureGate feature="communities"><Communities /></FeatureGate>} />

@@ -1,0 +1,25 @@
+# MapleJourney SEO Configuration
+User-agent: *
+Allow: /
+Allow: /app/resume
+Allow: /app/chat
+Disallow: /admin
+Disallow: /api
+Disallow: /*.json$
+
+# Crawl delay for respectful crawling
+Crawl-delay: 1
+
+# Sitemaps
+Sitemap: https://maplejourney.ca/sitemap.xml
+Sitemap: https://maplejourney.ca/sitemap-pages.xml
+
+# Google-specific
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0.5
+
+# Bing-specific
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
