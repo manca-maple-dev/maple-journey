@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 from core.db import db, clean
 from pymongo import UpdateOne, ASCENDING, DESCENDING
+from pymongo.errors import PyMongoError
 
 logger = logging.getLogger("jobs")
 
@@ -60,11 +61,15 @@ ADMIN_KEYWORDS = [
 async def ensure_indexes() -> None:
     """Create MongoDB indexes for job queries."""
     jobs = db.jobs_cache
-    await jobs.create_index([("location", ASCENDING), ("date_posted", DESCENDING)])
-    await jobs.create_index([("industry", ASCENDING)])
-    await jobs.create_index([("experience_level", ASCENDING)])
-    await jobs.create_index([("created_at", DESCENDING)])
-    await jobs.create_index([("user_id", ASCENDING), ("date_posted", DESCENDING)])
+    try:
+        await jobs.create_index([("location", ASCENDING), ("date_posted", DESCENDING)])
+        await jobs.create_index([("industry", ASCENDING)])
+        await jobs.create_index([("experience_level", ASCENDING)])
+        await jobs.create_index([("created_at", DESCENDING)])
+        await jobs.create_index([("user_id", ASCENDING), ("date_posted", DESCENDING)])
+    except PyMongoError as e:
+        # Do not block app startup if index creation fails (e.g., low disk on DB).
+        logger.warning(f"Jobs index initialization skipped: {e}")
 
 
 async def scrape_jobs_from_jobbank(
