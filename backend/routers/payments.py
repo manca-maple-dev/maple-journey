@@ -3,10 +3,12 @@ server-side only; the client never sends an amount. Payment state is tracked
 in the payment_transactions collection and reconciled via polling + webhook."""
 import os
 import logging
+import json
 from datetime import datetime, timezone, timedelta
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, Request, HTTPException
+import stripe
 
 from core.db import db
 from core.config import PLAN_CATALOG, PLAN_PRICES
@@ -39,11 +41,24 @@ def _frontend_base_url(fallback_origin: str = "") -> str:
 
 
 def _checkout(webhook_url: str):
-    from emergentintegrations.payments.stripe.checkout import StripeCheckout
     api_key = os.environ.get("STRIPE_API_KEY", "").strip()
     if not api_key:
         raise HTTPException(status_code=503, detail="Stripe is not configured")
-    return StripeCheckout(api_key=api_key, webhook_url=webhook_url)
+    stripe.api_key = api_key
+    return {"webhook_url": webhook_url}
+
+
+def _webhook_secret() -> str:
+    return os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
+
+
+def _session_to_status(session) -> dict:
+    return {
+        "session_id": session.get("id"),
+        "status": session.get("status"),
+        "payment_status": session.get("payment_status"),
+        "url": session.get("url"),
+    }
 
 
 async def _grant_tier(session_id: str):
@@ -101,14 +116,33 @@ async def create_checkout_session(body: CheckoutIn, request: Request, user: dict
     cancel_url = f"{app_base}/app/plans"
     metadata = {"user_id": str(user["_id"]), "plan_id": plan_id, "source": "app_upgrade"}
 
-    from emergentintegrations.payments.stripe.checkout import CheckoutSessionRequest
     checkout = _checkout(webhook_url)
-    req = CheckoutSessionRequest(amount=amount, currency="usd", success_url=success_url, cancel_url=cancel_url, metadata=metadata)
-    session = await checkout.create_checkout_session(req)
+    unit_amount = int(round(amount * 100))
+    try:
+        session = stripe.checkout.Session.create(
+            mode="payment",
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata=metadata,
+            line_items=[{
+                "quantity": 1,
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": unit_amount,
+                    "product_data": {
+                        "name": next((p["name"] for p in PLAN_CATALOG if p["id"] == plan_id), plan_id.title()),
+                        "description": f"MapleJourney {plan_id.title()} plan",
+                    },
+                },
+            }],
+        )
+    except stripe.error.StripeError as exc:
+        logger.exception("stripe checkout create failed user_id=%s plan_id=%s", str(user["_id"]), plan_id)
+        raise HTTPException(status_code=502, detail=f"Stripe checkout failed: {exc.user_message or str(exc)}") from exc
 
     logger.info(
         "stripe checkout created session_id=%s user_id=%s plan_id=%s amount=%s currency=usd app_base=%s",
-        session.session_id,
+        session.get("id"),
         str(user["_id"]),
         plan_id,
         amount,
@@ -116,7 +150,7 @@ async def create_checkout_session(body: CheckoutIn, request: Request, user: dict
     )
 
     await db.payment_transactions.insert_one({
-        "session_id": session.session_id,
+        "session_id": session.get("id"),
         "user_id": str(user["_id"]),
         "plan_id": plan_id,
         "amount": amount,
@@ -127,7 +161,7 @@ async def create_checkout_session(body: CheckoutIn, request: Request, user: dict
         "metadata": metadata,
         "created_at": _now_iso(),
     })
-    return {"url": session.url, "session_id": session.session_id}
+    return {"url": session.get("url"), "session_id": session.get("id")}
 
 
 @router.get("/checkout/status/{session_id}")
@@ -139,44 +173,57 @@ async def checkout_status(session_id: str, request: Request, user: dict = Depend
         raise HTTPException(status_code=403, detail="This checkout session does not belong to you")
 
     host = str(request.base_url).rstrip("/")
-    checkout = _checkout(f"{host}/api/webhook/stripe")
-    status = await checkout.get_checkout_status(session_id)
+    _checkout(f"{host}/api/webhook/stripe")
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        status = _session_to_status(session)
+    except stripe.error.StripeError as exc:
+        logger.exception("stripe checkout status failed session_id=%s user_id=%s", session_id, str(user["_id"]))
+        raise HTTPException(status_code=502, detail=f"Stripe status lookup failed: {exc.user_message or str(exc)}") from exc
 
     await db.payment_transactions.update_one(
         {"session_id": session_id},
-        {"$set": {"status": status.status, "payment_status": status.payment_status, "updated_at": _now_iso()}},
+        {"$set": {"status": status["status"], "payment_status": status["payment_status"], "updated_at": _now_iso()}},
     )
-    if status.payment_status == "paid":
+    if status["payment_status"] == "paid":
         await _grant_tier(session_id)
 
     logger.info(
         "stripe checkout status session_id=%s user_id=%s status=%s payment_status=%s",
         session_id,
         str(user["_id"]),
-        status.status,
-        status.payment_status,
+        status["status"],
+        status["payment_status"],
     )
 
-    return {"status": status.status, "payment_status": status.payment_status, "plan_id": txn["plan_id"]}
+    return {"status": status["status"], "payment_status": status["payment_status"], "plan_id": txn["plan_id"]}
 
 
 @router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     body = await request.body()
     sig = request.headers.get("Stripe-Signature")
-    host = str(request.base_url).rstrip("/")
     try:
-        checkout = _checkout(f"{host}/api/webhook/stripe")
-        resp = await checkout.handle_webhook(body, sig)
+        _checkout(str(request.base_url).rstrip("/"))
+        webhook_secret = _webhook_secret()
+        if webhook_secret and sig:
+            event = stripe.Webhook.construct_event(body, sig, webhook_secret)
+        else:
+            event = json.loads(body.decode("utf-8"))
     except Exception:
         logger.exception("stripe webhook error")
         return {"received": True}
 
-    if getattr(resp, "payment_status", None) == "paid" and getattr(resp, "session_id", None):
+    event_type = event.get("type")
+    data_object = ((event.get("data") or {}).get("object") or {})
+    session_id = data_object.get("id")
+    payment_status = data_object.get("payment_status")
+
+    if event_type == "checkout.session.completed" and payment_status == "paid" and session_id:
         await db.payment_transactions.update_one(
-            {"session_id": resp.session_id},
+            {"session_id": session_id},
             {"$set": {"payment_status": "paid", "status": "complete", "updated_at": _now_iso()}},
         )
-        logger.info("stripe webhook paid session_id=%s", resp.session_id)
-        await _grant_tier(resp.session_id)
+        logger.info("stripe webhook paid session_id=%s", session_id)
+        await _grant_tier(session_id)
     return {"received": True}
