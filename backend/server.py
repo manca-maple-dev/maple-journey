@@ -44,8 +44,10 @@ _research_task: asyncio.Task | None = None
 async def _init_telegram_services() -> None:
     """Initialize Telegram bot + monitoring independently of optional startup tasks."""
     telegram_bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    enable_polling = os.environ.get("TELEGRAM_START_POLLING", "false").strip().lower() in {"1", "true", "yes"}
-    enable_monitoring = os.environ.get("TELEGRAM_START_MONITORING", "false").strip().lower() in {"1", "true", "yes"}
+    # Keep the web service stable: Telegram polling/monitoring are disabled here.
+    # They can be run in a dedicated worker/service if needed.
+    enable_polling = False
+    enable_monitoring = False
     if telegram_bot_token:
         try:
             # Initialize Telegram collector
