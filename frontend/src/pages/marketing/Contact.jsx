@@ -39,13 +39,13 @@ export default function Contact() {
         eyebrow="Contact"
         title="Reach MapleJourney"
         updatedAt="July 4, 2026"
-        intro="MapleJourney is an AI-powered platform helping newcomers in Canada organize information, understand next steps, and discover trustworthy resources. If you need help with your account, privacy, billing, or legal notices, use the contact channels below."
+        intro="MapleJourney helps newcomers in Canada organize information, understand next steps, and find trustworthy resources. For account, privacy, billing, or legal questions, use the contact channels below."
       />
 
       <div className="mt-8 rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">
         <div className="flex items-center gap-3">
           <MapPin className="h-4 w-4 text-brand-500" />
-          <span>Operating location: Calgary, Alberta, Canada</span>
+          <span>Operating location: Calgary, Alberta, Canada. No public street address is published.</span>
         </div>
       </div>
 
@@ -65,7 +65,7 @@ export default function Contact() {
       </div>
 
       <div className="mt-10 rounded-2xl border border-border bg-secondary/40 p-5 text-sm leading-7 text-muted-foreground">
-        MapleJourney is not a law firm, government office, or emergency service. If you need urgent legal help, emergency housing, crisis response, or medical assistance,
+        MapleJourney is not a law firm, government office, or emergency service. If you need urgent legal help, emergency housing, crisis support, or medical assistance,
         contact the appropriate qualified provider directly.
       </div>
     </div>

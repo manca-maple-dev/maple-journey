@@ -39,7 +39,7 @@ export default function LegalDisclaimer() {
       </Section>
 
       <Section title="Location and Contact">
-        <p>MapleJourney is operated from Calgary, Alberta, Canada. Planned public contact channels for the maplejourney.ca domain include <a className="text-brand-500 underline underline-offset-2" href="mailto:support@maplejourney.ca">support@maplejourney.ca</a> and <a className="text-brand-500 underline underline-offset-2" href="mailto:legal@maplejourney.ca">legal@maplejourney.ca</a>.</p>
+        <p>MapleJourney is operated from Calgary, Alberta, Canada. Public contact channels for the maplejourney.ca domain include <a className="text-brand-500 underline underline-offset-2" href="mailto:support@maplejourney.ca">support@maplejourney.ca</a> and <a className="text-brand-500 underline underline-offset-2" href="mailto:legal@maplejourney.ca">legal@maplejourney.ca</a>.</p>
       </Section>
     </div>
   );

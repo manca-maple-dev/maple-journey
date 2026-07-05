@@ -8,7 +8,7 @@ from core.config import DEFAULT_FEATURES
 from core.db import db
 from core.security import hash_password, verify_password
 from services.users import get_global_features
-from services.source_registry import ensure_source_registry, materialize_legal_resources_from_registry
+from services.source_registry import ensure_source_registry, materialize_legal_resources_from_registry, refresh_legal_sources_and_resources
 
 logger = logging.getLogger("maplejourney.seed")
 
@@ -84,6 +84,13 @@ async def run_startup():
         ])
 
     await ensure_source_registry(db)
-    await materialize_legal_resources_from_registry(db)
+    legal_count = await materialize_legal_resources_from_registry(db)
+    logger.info(f"Legal resources materialized: {legal_count} sources")
+    
+    # Ensure at least some legal resources exist
+    existing_legal = await db.legal_resources.count_documents({})
+    if existing_legal == 0:
+        logger.warning("No legal resources found after materialization. Reseeding...")
+        await refresh_legal_sources_and_resources(db)
 
     logger.info("MapleJourney startup complete.")

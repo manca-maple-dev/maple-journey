@@ -50,7 +50,7 @@ export default function PrivacyPolicy() {
       </Section>
 
       <Section title="Contact">
-        <p>For privacy or support questions, MapleJourney plans to publish professional domain-based contact channels including <a className="text-brand-500 underline underline-offset-2" href="mailto:privacy@maplejourney.ca">privacy@maplejourney.ca</a> and <a className="text-brand-500 underline underline-offset-2" href="mailto:support@maplejourney.ca">support@maplejourney.ca</a>.</p>
+        <p>For privacy or support questions, use the professional domain-based contact channels published for MapleJourney, including <a className="text-brand-500 underline underline-offset-2" href="mailto:privacy@maplejourney.ca">privacy@maplejourney.ca</a> and <a className="text-brand-500 underline underline-offset-2" href="mailto:support@maplejourney.ca">support@maplejourney.ca</a>.</p>
         <p>Operational location: Calgary, Alberta, Canada.</p>
       </Section>
     </div>

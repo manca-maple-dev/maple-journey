@@ -296,7 +296,36 @@ async def list_resources():
 # ----- Legal help (free / low-cost legal aid) -----
 @router.get("/legal-resources")
 async def list_legal_resources(user: dict = Depends(get_current_user)):
-    items = await db.legal_resources.find({}).to_list(200)
+    items = await db.legal_resources.find({"source_kind": "legal-aid"}).to_list(200)
+    if not items:
+        # Fallback: return empty with helpful message instead of error
+        return []
+    ranked = []
+    for item in items:
+        cleaned = clean(item)
+        score, reasons = legal_resource_relevance(cleaned, user)
+        cleaned["relevance_score"] = score
+        cleaned["relevance_reasons"] = reasons
+        cleaned["freshness_label"] = cleaned.get("freshness_label") or "Needs refresh"
+        ranked.append(cleaned)
+    ranked.sort(
+        key=lambda resource: (
+            resource.get("relevance_score", 0),
+            resource.get("cost") == "Free",
+            resource.get("province") == "National",
+        ),
+        reverse=True,
+    )
+    return ranked
+
+
+# ----- Government resources (IRCC, Service Canada, etc.) -----
+@router.get("/government-resources")
+async def list_government_resources(user: dict = Depends(get_current_user)):
+    items = await db.legal_resources.find({"source_kind": "government"}).to_list(200)
+    if not items:
+        # Fallback: return empty with helpful message instead of error
+        return []
     ranked = []
     for item in items:
         cleaned = clean(item)
@@ -326,6 +355,66 @@ async def get_source_registry(user: dict = Depends(get_current_user)):
 async def refresh_source_registry(user: dict = Depends(get_current_user)):
     result = await refresh_legal_sources_and_resources(db)
     return {"ok": True, **result}
+
+
+# ----- Diagnostic: Check data status -----
+@router.get("/diagnostics/data-status")
+async def get_data_status(user: dict = Depends(get_current_user)):
+    legal_count = await db.legal_resources.count_documents({})
+    legal_by_kind = await db.legal_resources.aggregate([
+        {"$group": {"_id": "$source_kind", "count": {"$sum": 1}}}
+    ]).to_list(100)
+    
+    gov_count = await db.legal_resources.count_documents({"source_kind": "government"})
+    legal_aid_count = await db.legal_resources.count_documents({"source_kind": "legal-aid"})
+    
+    source_registry_count = await db.source_registry.count_documents({})
+    benefits_count = await db.benefits.count_documents({})
+    resources_count = await db.resources.count_documents({})
+    
+    return {
+        "legal_resources": {
+            "total": legal_count,
+            "government": gov_count,
+            "legal_aid": legal_aid_count,
+            "by_kind": [dict(item) for item in legal_by_kind]
+        },
+        "source_registry": source_registry_count,
+        "benefits": benefits_count,
+        "resources": resources_count,
+        "status": "healthy" if legal_count > 0 else "empty"
+    }
+
+
+@router.post("/diagnostics/repopulate-legal-resources")
+async def repopulate_legal_resources(user: dict = Depends(get_current_user)):
+    """Force repopulate legal resources from source registry"""
+    from services.source_registry import ensure_source_registry, materialize_legal_resources_from_registry
+    
+    try:
+        # Ensure source registry is populated
+        await ensure_source_registry(db)
+        
+        # Clear and repopulate legal_resources
+        await db.legal_resources.delete_many({})
+        count = await materialize_legal_resources_from_registry(db)
+        
+        # Verify
+        gov_count = await db.legal_resources.count_documents({"source_kind": "government"})
+        legal_aid_count = await db.legal_resources.count_documents({"source_kind": "legal-aid"})
+        
+        return {
+            "ok": True,
+            "message": "Legal resources repopulated successfully",
+            "materialized": count,
+            "government_resources": gov_count,
+            "legal_aid_resources": legal_aid_count
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "error": str(e)
+        }
 
 
 # Community resources endpoints moved to routers/community.py
