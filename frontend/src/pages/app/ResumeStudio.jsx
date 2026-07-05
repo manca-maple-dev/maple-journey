@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Sparkles,
   LayoutTemplate,
@@ -11,8 +11,10 @@ import {
   BadgeCheck,
   Grid,
   List,
+  Lock,
 } from "lucide-react";
 import { useMaple } from "@/context/MapleContext";
+import { useAuth } from "@/context/AuthContext";
 import QualityPreviewModal from "@/components/resume/QualityPreviewModal";
 
 const TEMPLATES = [
@@ -125,6 +127,18 @@ const TEMPLATES = [
   },
 ];
 
+const TIER_RANK = {
+  free: 0,
+  plus: 1,
+  pro: 2,
+};
+
+const TEMPLATE_TIER_RULES = {
+  free: ["north-star", "cedar", "express"],
+  plus: ["harbour", "summit", "maple-pro", "catalyst"],
+  pro: ["aurora", "prestige", "velocity"],
+};
+
 const SMART_THEMES = {
   general: {
     name: "Balanced Professional",
@@ -190,6 +204,7 @@ const NEWCOMER_PRESETS = {
   office: {
     id: "office",
     label: "Office / Admin",
+    recommendedTemplateId: "cedar",
     resume: {
       name: "Your Name",
       headline: "Newcomer Professional in Canada | Customer Service & Office Operations",
@@ -225,6 +240,7 @@ const NEWCOMER_PRESETS = {
   healthcare: {
     id: "healthcare",
     label: "Healthcare Support",
+    recommendedTemplateId: "harbour",
     resume: {
       name: "Your Name",
       headline: "Newcomer Professional in Canada | Healthcare Support & Patient Service",
@@ -257,7 +273,63 @@ const NEWCOMER_PRESETS = {
       ],
     },
   },
+  warehouse: {
+    id: "warehouse",
+    label: "General Labour / Warehouse",
+    recommendedTemplateId: "express",
+    resume: {
+      name: "Your Name",
+      headline: "Newcomer Professional in Canada | Warehouse Operations & General Labour",
+      email: "you@email.com",
+      phone: "+1 647 000 0000",
+      location: "Toronto, ON",
+      summary:
+        "Reliable warehouse and general labour professional with hands-on experience in shipping, receiving, and order fulfillment. Strong safety awareness, stamina, and teamwork in fast-paced environments with strict deadlines.",
+      skills: "Order Picking, Packing, Shipping & Receiving, Inventory Counts, Pallet Jack, Warehouse Safety, Team Collaboration, English",
+      education: "Workplace Safety Training (WHMIS), 2024 | Toronto, ON",
+      experience: [
+        {
+          title: "Warehouse Associate",
+          company: "Metro Supply Hub",
+          period: "2024 - Present",
+          bullets: [
+            "Picked and packed 120+ orders per shift while meeting quality and on-time targets.",
+            "Helped reduce fulfillment errors through consistent label and item verification procedures.",
+          ],
+        },
+        {
+          title: "General Labourer",
+          company: "Northline Distribution",
+          period: "2022 - 2024",
+          bullets: [
+            "Supported loading, unloading, and staging operations to keep dispatch timelines on track.",
+            "Maintained clean and safe work zones and followed daily safety protocols without incidents.",
+          ],
+        },
+      ],
+    },
+  },
 };
+
+const RESUME_STUDIO_STATE_KEY = "maple.resumeStudio.state.v1";
+
+function inferPresetFromSearch(search) {
+  const params = new URLSearchParams(search);
+  const raw = (
+    params.get("preset") ||
+    params.get("profile") ||
+    params.get("role") ||
+    params.get("track") ||
+    params.get("t") ||
+    ""
+  ).toLowerCase();
+
+  if (!raw) return null;
+  if (/(office|admin|customer|service|clerical)/.test(raw)) return "office";
+  if (/(health|healthcare|medical|clinic|patient|care)/.test(raw)) return "healthcare";
+  if (/(warehouse|labou?r|logistics|forklift|picker|packer)/.test(raw)) return "warehouse";
+  return NEWCOMER_PRESETS[raw] ? raw : null;
+}
 
 function detectResumeDomain(headline = "", skills = "") {
   const text = `${headline} ${skills}`.toLowerCase();
@@ -318,7 +390,9 @@ function toMarkdown(resume) {
 
 export default function ResumeStudio() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { openWith } = useMaple();
+  const { user, features } = useAuth();
   const [templateId, setTemplateId] = useState("maple-pro");
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState("grid"); // grid or list
@@ -327,6 +401,12 @@ export default function ResumeStudio() {
   const [previewMode, setPreviewMode] = useState("normal"); // normal or fullscreen
   const [showEmptyTemplate, setShowEmptyTemplate] = useState(false); // show template structure without content
   const [activePreset, setActivePreset] = useState("office");
+  const [upgradeModal, setUpgradeModal] = useState({
+    open: false,
+    title: "",
+    description: "",
+    tier: "plus",
+  });
 
   const [resume, setResume] = useState(NEWCOMER_PRESETS.office.resume);
 
@@ -343,6 +423,52 @@ export default function ResumeStudio() {
   const selectedTemplate = useMemo(
     () => TEMPLATES.find((t) => t.id === templateId) || TEMPLATES[0],
     [templateId]
+  );
+
+  const userTier = (user?.tier || "free").toLowerCase();
+  const normalizedTier = TIER_RANK[userTier] === undefined ? "free" : userTier;
+
+  const boolFeature = (value) => (typeof value === "boolean" ? value : null);
+
+  const serverAllowedTemplates = useMemo(() => {
+    const candidate =
+      features?.resume_templates ||
+      features?.resume?.templates ||
+      features?.templates?.resume ||
+      null;
+    return Array.isArray(candidate) ? new Set(candidate) : null;
+  }, [features]);
+
+  const canUseAdvancedToolsFromFeature =
+    boolFeature(features?.resume_advanced_tools) ??
+    boolFeature(features?.resume?.advanced_tools) ??
+    boolFeature(features?.resume?.advancedTools) ??
+    null;
+
+  const templateMinTier = useMemo(() => {
+    const map = {};
+    Object.entries(TEMPLATE_TIER_RULES).forEach(([tier, ids]) => {
+      ids.forEach((id) => {
+        map[id] = tier;
+      });
+    });
+    return map;
+  }, []);
+
+  const isTemplateLocked = (id) => {
+    if (serverAllowedTemplates) {
+      return !serverAllowedTemplates.has(id);
+    }
+    const needed = templateMinTier[id] || "free";
+    return TIER_RANK[normalizedTier] < TIER_RANK[needed];
+  };
+
+  const isAdvancedToolsLocked =
+    canUseAdvancedToolsFromFeature === null ? normalizedTier === "free" : !canUseAdvancedToolsFromFeature;
+
+  const recommendedTemplateId = useMemo(
+    () => NEWCOMER_PRESETS[activePreset]?.recommendedTemplateId || null,
+    [activePreset]
   );
 
   const smartTheme = useMemo(() => {
@@ -572,7 +698,115 @@ export default function ResumeStudio() {
     if (!preset) return;
     setActivePreset(presetId);
     setResume(preset.resume);
+    if (preset.recommendedTemplateId && !isTemplateLocked(preset.recommendedTemplateId)) {
+      setTemplateId(preset.recommendedTemplateId);
+    }
   };
+
+  const openUpgradeModal = (requiredTier, title, description) => {
+    setUpgradeModal({
+      open: true,
+      tier: requiredTier || "plus",
+      title,
+      description,
+    });
+  };
+
+  const promptUpgrade = (requiredTier, source) => {
+    const tier = requiredTier || "plus";
+    const title = source === "template" ? "Template locked for your plan" : "Feature locked for your plan";
+    const description =
+      source === "template"
+        ? `Upgrade to ${tier} to access this resume design.`
+        : `Upgrade to ${tier} to unlock Maple AI and export tools.`;
+    openUpgradeModal(tier, title, description);
+  };
+
+  const goToPlans = () => {
+    setUpgradeModal((prev) => ({ ...prev, open: false }));
+    navigate(`/app/plans?from=resume&tier=${upgradeModal.tier}`);
+  };
+
+  const runPremiumAction = (action, requiredTier = "plus") => {
+    if (isAdvancedToolsLocked) {
+      promptUpgrade(requiredTier, "tools");
+      return;
+    }
+    action();
+  };
+
+  const selectTemplate = (id) => {
+    if (isTemplateLocked(id)) {
+      promptUpgrade(templateMinTier[id] || "plus", "template");
+      return;
+    }
+    setTemplateId(id);
+  };
+
+  useEffect(() => {
+    const inferredPreset = inferPresetFromSearch(location.search);
+    if (inferredPreset) return;
+
+    try {
+      const raw = localStorage.getItem(RESUME_STUDIO_STATE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+
+      if (saved.activePreset && NEWCOMER_PRESETS[saved.activePreset]) {
+        setActivePreset(saved.activePreset);
+      }
+      if (saved.templateId && TEMPLATES.some((t) => t.id === saved.templateId)) {
+        setTemplateId(saved.templateId);
+      }
+      if (typeof saved.printSafe === "boolean") {
+        setPrintSafe(saved.printSafe);
+      }
+      if (saved.viewMode === "grid" || saved.viewMode === "list") {
+        setViewMode(saved.viewMode);
+      }
+      if (
+        saved.resume &&
+        typeof saved.resume === "object" &&
+        typeof saved.resume.name === "string" &&
+        Array.isArray(saved.resume.experience)
+      ) {
+        setResume(saved.resume);
+      }
+    } catch {
+      // Ignore invalid or stale local state.
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    const inferredPreset = inferPresetFromSearch(location.search);
+    if (inferredPreset && inferredPreset !== activePreset) {
+      applyPreset(inferredPreset);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!isTemplateLocked(templateId)) return;
+    const fallback = TEMPLATES.find((t) => !isTemplateLocked(t.id));
+    if (fallback) {
+      setTemplateId(fallback.id);
+    }
+  }, [normalizedTier]);
+
+  useEffect(() => {
+    const payload = {
+      activePreset,
+      templateId,
+      printSafe,
+      viewMode,
+      resume,
+    };
+
+    try {
+      localStorage.setItem(RESUME_STUDIO_STATE_KEY, JSON.stringify(payload));
+    } catch {
+      // Ignore storage write failures.
+    }
+  }, [activePreset, templateId, printSafe, viewMode, resume]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-5" data-testid="resume-studio-page">
@@ -627,6 +861,9 @@ export default function ResumeStudio() {
 
             <div className="mb-4 rounded-xl border border-border bg-background p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Starter profile</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Current plan: <span className="font-semibold text-foreground capitalize">{normalizedTier}</span>
+              </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {Object.values(NEWCOMER_PRESETS).map((preset) => {
                   const active = preset.id === activePreset;
@@ -646,6 +883,11 @@ export default function ResumeStudio() {
                   );
                 })}
               </div>
+              {recommendedTemplateId && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Best match selected automatically for this profile.
+                </p>
+              )}
             </div>
 
             {viewMode === "grid" ? (
@@ -660,7 +902,7 @@ export default function ResumeStudio() {
                           <button
                             key={t.id}
                             type="button"
-                            onClick={() => setTemplateId(t.id)}
+                            onClick={() => selectTemplate(t.id)}
                             className={`rounded-2xl border p-3 text-left transition-all group ${
                               active
                                 ? "border-brand-500 bg-brand-50 shadow-md ring-2 ring-brand-200/60 dark:bg-brand-500/10"
@@ -672,12 +914,25 @@ export default function ResumeStudio() {
                                 <div className="flex items-center gap-2">
                                   <p className="text-sm font-semibold">{t.name}</p>
                                   <span className={`h-2.5 w-2.5 rounded-full ${t.accent}`} />
+                                  {isTemplateLocked(t.id) && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                      <Lock className="h-3 w-3" /> {templateMinTier[t.id]?.toUpperCase()}
+                                    </span>
+                                  )}
+                                  {t.id === recommendedTemplateId && (
+                                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                                      Best for you
+                                    </span>
+                                  )}
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-0.5">{t.vibe}</p>
                               </div>
                               {active && <Check className="h-4 w-4 text-brand-600 flex-shrink-0" />}
                             </div>
                             <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{t.preview}</p>
+                            {isTemplateLocked(t.id) && (
+                              <p className="mt-1 text-[11px] font-medium text-muted-foreground">Upgrade to {templateMinTier[t.id]} to use this template</p>
+                            )}
                             <div className="mt-2 h-1.5 w-full rounded-full bg-secondary">
                               <div className={`h-full rounded-full ${t.accent}`} style={{ width: active ? "72%" : "42%" }} />
                             </div>
@@ -699,7 +954,7 @@ export default function ResumeStudio() {
                         <button
                           key={t.id}
                           type="button"
-                          onClick={() => setTemplateId(t.id)}
+                          onClick={() => selectTemplate(t.id)}
                           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg border transition-all text-left ${
                             active
                               ? "border-brand-500 bg-brand-50 dark:bg-brand-500/10"
@@ -708,7 +963,19 @@ export default function ResumeStudio() {
                         >
                           <span className={`h-3 w-3 rounded-full flex-shrink-0 ${t.accent}`} />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold">{t.name}</p>
+                            <p className="text-sm font-semibold">
+                              {t.name}
+                              {isTemplateLocked(t.id) && (
+                                <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                  <Lock className="mr-1 inline h-3 w-3" /> {templateMinTier[t.id]?.toUpperCase()}
+                                </span>
+                              )}
+                              {t.id === recommendedTemplateId && (
+                                <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                                  Best for you
+                                </span>
+                              )}
+                            </p>
                             <p className="text-xs text-muted-foreground">{t.vibe}</p>
                           </div>
                           {active && <Check className="h-4 w-4 text-brand-600 flex-shrink-0" />}
@@ -831,13 +1098,28 @@ export default function ResumeStudio() {
           <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h3 className="font-display text-lg font-semibold mb-1">Maple power tools</h3>
             <p className="text-xs text-muted-foreground mb-4">Enhance and export your resume</p>
+
+            {isAdvancedToolsLocked && (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                  Free plan: basic editing and markdown copy are available.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openUpgradeModal("plus", "Unlock Resume Pro Tools", "Upgrade to unlock AI rewrite, full preview, and PDF export.")}
+                  className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                >
+                  Upgrade to unlock AI rewrite and PDF tools <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
             
             {/* Download Button - Prominent */}
             <div className="mb-4 rounded-2xl bg-gradient-to-r from-brand-50 to-brand-100/50 dark:from-brand-500/10 dark:to-brand-600/10 border-2 border-brand-200 dark:border-brand-500/30 p-4">
               <div className="space-y-3">
                 <button
                   type="button"
-                  onClick={() => setShowEmptyTemplate(true)}
+                  onClick={() => runPremiumAction(() => setShowEmptyTemplate(true))}
                   className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white px-4 py-3.5 text-sm font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95"
                 >
                   <span className="inline-flex items-center gap-2">
@@ -848,7 +1130,7 @@ export default function ResumeStudio() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPreviewMode("fullscreen")}
+                  onClick={() => runPremiumAction(() => setPreviewMode("fullscreen"))}
                   className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white px-4 py-3.5 text-sm font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95"
                 >
                   <span className="inline-flex items-center gap-2">
@@ -859,7 +1141,7 @@ export default function ResumeStudio() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowQualityPreview(true)}
+                  onClick={() => runPremiumAction(() => setShowQualityPreview(true))}
                   className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-4 py-3.5 text-sm font-semibold transition-all shadow-lg hover:shadow-xl active:scale-95"
                 >
                   <span className="inline-flex items-center gap-2">
@@ -876,7 +1158,7 @@ export default function ResumeStudio() {
             <div className="space-y-2">
               <button
                 type="button"
-                onClick={() => askMapleToEnhance("resume", toMarkdown(resume))}
+                onClick={() => runPremiumAction(() => askMapleToEnhance("resume", toMarkdown(resume)))}
                 className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm hover:bg-secondary/50 transition-colors"
               >
                 <span className="inline-flex items-center gap-2"><Sparkles className="h-4 w-4 text-brand-600" /> Rewrite for Canadian Recruiters</span>
@@ -884,7 +1166,7 @@ export default function ResumeStudio() {
               </button>
               <button
                 type="button"
-                onClick={() => askMapleToEnhance("experience bullets", resume.experience.flatMap((e) => e.bullets).join(" | "))}
+                onClick={() => runPremiumAction(() => askMapleToEnhance("experience bullets", resume.experience.flatMap((e) => e.bullets).join(" | ")))}
                 className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm hover:bg-secondary/50 transition-colors"
               >
                 <span className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-brand-600" /> Strengthen Impact Metrics</span>
@@ -916,7 +1198,7 @@ export default function ResumeStudio() {
           <div className="flex gap-2 flex-shrink-0">
             <button
               type="button"
-              onClick={() => setPreviewMode("fullscreen")}
+              onClick={() => runPremiumAction(() => setPreviewMode("fullscreen"))}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background hover:bg-secondary px-3 py-2 text-xs font-medium transition-colors"
             >
               <LayoutTemplate className="h-3.5 w-3.5" />
@@ -924,7 +1206,7 @@ export default function ResumeStudio() {
             </button>
             <button
               type="button"
-              onClick={() => setShowQualityPreview(true)}
+              onClick={() => runPremiumAction(() => setShowQualityPreview(true))}
               className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white px-4 py-2 text-xs font-semibold transition-all shadow-md hover:shadow-lg active:scale-95"
             >
               <Download className="h-3.5 w-3.5" />
@@ -1117,6 +1399,35 @@ export default function ResumeStudio() {
           {/* Footer */}
           <div className="border-t border-border bg-card px-4 sm:px-6 py-3 text-center text-xs text-muted-foreground">
             <p>This is the structural layout. Your content will fill these sections.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade Modal */}
+      {upgradeModal.open && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <h3 className="font-display text-xl font-semibold">{upgradeModal.title}</h3>
+            <p className="mt-2 text-sm text-muted-foreground">{upgradeModal.description}</p>
+            <div className="mt-4 rounded-lg border border-border bg-background p-3 text-xs text-muted-foreground">
+              Current plan: <span className="font-semibold text-foreground capitalize">{normalizedTier}</span> · Required: <span className="font-semibold text-foreground uppercase">{upgradeModal.tier}</span>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setUpgradeModal((prev) => ({ ...prev, open: false }))}
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-secondary"
+              >
+                Maybe later
+              </button>
+              <button
+                type="button"
+                onClick={goToPlans}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-2 text-sm font-semibold text-white hover:from-brand-700 hover:to-brand-800"
+              >
+                Upgrade now <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}
