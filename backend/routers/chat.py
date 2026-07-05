@@ -66,7 +66,12 @@ async def _openai_chat_response(system_prompt: str, user_message: str) -> str:
 
     Keeps Maple chat usable with OPENAI_API_KEY only.
     """
-    openai_key = _env_value("OPENAI_API_KEY", "OPENAI_KEY", "OPENAI_API_TOKEN")
+    openai_key = _env_value(
+        "OPENAI_API_KEY",
+        "OPENAI_KEY",
+        "OPENAI_API_TOKEN",
+        "EMERGENT_LLM_KEY",
+    )
     if not openai_key:
         return ""
     try:
