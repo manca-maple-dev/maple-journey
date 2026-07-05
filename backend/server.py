@@ -170,11 +170,16 @@ async def frontend_spa(path: str):
     raise HTTPException(status_code=404, detail="Frontend build not found")
 
 _cors_origins = os.environ.get("CORS_ORIGINS", "*")
-_allow_origins = (
-    ["*"]
-    if _cors_origins == "*"
-    else [o.strip() for o in _cors_origins.split(",")]
-)
+if _cors_origins == "*":
+    _allow_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://maple-journey-app.vercel.app",
+        "https://maplejourney.ca",
+        "https://www.maplejourney.ca",
+    ]
+else:
+    _allow_origins = [o.strip() for o in _cors_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
