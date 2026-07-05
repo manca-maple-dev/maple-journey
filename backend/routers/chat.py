@@ -504,7 +504,7 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
     if not answer:
         answer = grounded_fallback_response(sanitized_message, rag_context)
 
-    answer = enforce_citation_policy(answer, rag_context)
+    answer = enforce_citation_policy(answer)
     answer = filter_response_for_leaks(answer)
         answer = attach_verified_citations_if_missing(answer, rag_context)
 
