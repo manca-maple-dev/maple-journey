@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { API } from '../lib/api';
 
 /**
  * React hook for personalization engine
@@ -13,7 +14,7 @@ export const usePersonalization = () => {
   const rankAlerts = useCallback(async (alerts) => {
     try {
       setLoading(true);
-      const response = await fetch('/api/assistant/rank-alerts', {
+      const response = await fetch(`${API}/assistant/rank-alerts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ alerts }),
@@ -34,7 +35,7 @@ export const usePersonalization = () => {
   const rankResources = useCallback(async (resources, resourceType) => {
     try {
       setLoading(true);
-      const response = await fetch('/api/assistant/rank-resources', {
+      const response = await fetch(`${API}/assistant/rank-resources`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -58,7 +59,7 @@ export const usePersonalization = () => {
   const rankPolicies = useCallback(async (policies) => {
     try {
       setLoading(true);
-      const response = await fetch('/api/assistant/rank-policies', {
+      const response = await fetch(`${API}/assistant/rank-policies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ policies }),
@@ -79,7 +80,7 @@ export const usePersonalization = () => {
   const getPersonalizationScore = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/assistant/personalization-score');
+      const response = await fetch(`${API}/assistant/personalization-score`);
 
       if (!response.ok) throw new Error('Failed to get personalization score');
 

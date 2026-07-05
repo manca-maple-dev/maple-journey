@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { API } from '../lib/api';
 
 /**
  * React hook for location awareness
@@ -59,7 +60,7 @@ export const useLocationAwareness = () => {
           return [];
         }
 
-        const response = await fetch('/api/assistant/nearby-resources', {
+        const response = await fetch(`${API}/assistant/nearby-resources`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -100,7 +101,7 @@ export const useLocationAwareness = () => {
           return [];
         }
 
-        const response = await fetch('/api/assistant/emergency-resources', {
+        const response = await fetch(`${API}/assistant/emergency-resources`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

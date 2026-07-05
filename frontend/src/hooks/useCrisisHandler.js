@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { API } from '../lib/api';
 
 /**
  * React hook for crisis detection and escalation
@@ -16,7 +17,7 @@ export const useCrisisHandler = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/assistant/crisis-check', {
+      const response = await fetch(`${API}/assistant/crisis-check`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { API } from '../lib/api';
 
 /**
  * React hook for government policy feed updates
@@ -20,8 +21,8 @@ export const usePolicyFeed = () => {
       try {
         setLoading(true);
         const [relevant, urgent] = await Promise.all([
-          fetch('/api/assistant/relevant-policies').then(r => r.json()),
-          fetch('/api/assistant/urgent-policies').then(r => r.json()),
+          fetch(`${API}/assistant/relevant-policies`).then(r => r.json()),
+          fetch(`${API}/assistant/urgent-policies`).then(r => r.json()),
         ]);
 
         setPolicies(relevant.policies || []);
@@ -42,7 +43,7 @@ export const usePolicyFeed = () => {
   // Mark policy as read
   const markPolicyRead = useCallback(async (policyId) => {
     try {
-      await fetch('/api/assistant/policy-read', {
+      await fetch(`${API}/assistant/policy-read`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ policy_id: policyId }),
@@ -55,7 +56,7 @@ export const usePolicyFeed = () => {
   // Subscribe to policy updates
   const subscribeToPolicies = useCallback(async (categories, minSeverity = 'high') => {
     try {
-      const response = await fetch('/api/assistant/policy-subscribe', {
+      const response = await fetch(`${API}/assistant/policy-subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -77,7 +78,7 @@ export const usePolicyFeed = () => {
   const getallUpdates = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/assistant/policy-updates');
+      const response = await fetch(`${API}/assistant/policy-updates`);
 
       if (!response.ok) throw new Error('Failed to fetch updates');
 

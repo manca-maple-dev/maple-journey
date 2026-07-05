@@ -42,7 +42,7 @@ function TypingDots() {
 }
 
 export default function Assistant() {
-  const { messages, sending, send, resetChat, getPageContext, currentPage } = useMaple();
+  const { messages, sending, assistantPhase, send, resetChat, getPageContext, currentPage } = useMaple();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -190,6 +190,7 @@ export default function Assistant() {
               {messages.map((m, i) => {
                 const isLast = i === messages.length - 1;
                 const streaming = m.role === "assistant" && isLast && sending && !!m.content;
+                const isReasoning = m.role === "assistant" && isLast && sending && !m.content && assistantPhase === "reasoning";
                 const citations = m.role === "assistant" ? extractCitations(m.content) : [];
                 const cleanContent = m.role === "assistant" ? removeCitationTags(m.content) : m.content;
                 return (
@@ -209,7 +210,14 @@ export default function Assistant() {
                                   )}
                                 </>
                               : cleanContent)
-                          : <TypingDots />}
+                          : (
+                            <div className="space-y-1">
+                              <div className="text-[11px] font-medium text-muted-foreground">
+                                {isReasoning ? "Maple is reasoning..." : "Maple is typing..."}
+                              </div>
+                              <TypingDots />
+                            </div>
+                          )}
                       </div>
                       {m.role === "assistant" && citations.length > 0 && !streaming && (
                         <div className="mt-3">

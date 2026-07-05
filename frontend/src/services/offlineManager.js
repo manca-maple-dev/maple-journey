@@ -2,6 +2,7 @@
  * Offline Support Module — IndexedDB persistence + local model management
  * Handles chat history, proactive alerts, and WebLLM model caching
  */
+import { API } from '../lib/api';
 
 class OfflineManager {
   constructor() {
@@ -143,7 +144,7 @@ class OfflineManager {
 
         if (item) {
           // Send to cloud
-          await fetch('/api/assistant/chat', {
+          await fetch(`${API}/assistant/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(item),

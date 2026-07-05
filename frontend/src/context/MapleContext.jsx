@@ -30,6 +30,7 @@ const PAGE_CONTEXT = {
 export function MapleProvider({ children }) {
   const [messages, setMessages] = useState([]);
   const [sending, setSending] = useState(false);
+  const [assistantPhase, setAssistantPhase] = useState("idle"); // idle | reasoning | typing
   const [open, setOpen] = useState(false);
   const [sessionId, setSessionId] = useState(() => localStorage.getItem("mj_chat_session") || "");
   const [currentPage, setCurrentPage] = useState("/app");
@@ -57,6 +58,7 @@ export function MapleProvider({ children }) {
     if (!msg || sending) return;
     setMessages((m) => [...m, { role: "user", content: msg }, { role: "assistant", content: "" }]);
     setSending(true);
+    setAssistantPhase("reasoning");
     try {
       const token = localStorage.getItem("mj_token");
       const res = await fetch(`${API}/assistant/chat`, {
@@ -76,6 +78,7 @@ export function MapleProvider({ children }) {
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
+        if (assistantPhase !== "typing") setAssistantPhase("typing");
         acc += decoder.decode(value, { stream: true });
         setMessages((m) => { const copy = [...m]; copy[copy.length - 1] = { role: "assistant", content: acc }; return copy; });
       }
@@ -83,8 +86,9 @@ export function MapleProvider({ children }) {
       setMessages((m) => { const copy = [...m]; copy[copy.length - 1] = { role: "assistant", content: "I apologize for the interruption. Please try again." }; return copy; });
     } finally {
       setSending(false);
+      setAssistantPhase("idle");
     }
-  }, [sending, sessionId]);
+  }, [sending, sessionId, assistantPhase]);
 
   // Open the dock, optionally seeded with a page-contextual question.
   const openWith = useCallback((prefill) => {
@@ -107,7 +111,7 @@ export function MapleProvider({ children }) {
   }, [currentPage]);
 
   return (
-    <MapleContext.Provider value={{ messages, sending, open, setOpen, openWith, send, resetChat, sessionId, currentPage, getPageContext }}>
+    <MapleContext.Provider value={{ messages, sending, assistantPhase, open, setOpen, openWith, send, resetChat, sessionId, currentPage, getPageContext }}>
       {children}
     </MapleContext.Provider>
   );

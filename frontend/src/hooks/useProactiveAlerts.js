@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { API } from '../lib/api';
 
 /**
  * Hook for displaying proactive deadline alerts in chat
@@ -18,9 +19,9 @@ export const useProactiveAlerts = () => {
     const fetchAlerts = async () => {
       try {
         setLoading(true);
-        const res = await fetch('/api/assistant/proactive-alerts', {
+        const res = await fetch(`${API}/assistant/proactive-alerts`, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${localStorage.getItem('mj_token')}`,
           },
         });
         const data = await res.json();
@@ -48,10 +49,10 @@ export const useProactiveAlerts = () => {
 
   const dismissAlert = useCallback(async (alertId) => {
     try {
-      await fetch(`/api/assistant/proactive-alerts/${alertId}/dismiss`, {
+      await fetch(`${API}/assistant/proactive-alerts/${alertId}/dismiss`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('mj_token')}`,
         },
       });
       setAlerts((prev) => prev.filter((a) => a.id !== alertId));

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { API } from '../lib/api';
 
 /**
  * React hook for memory layer management
@@ -19,7 +20,7 @@ export const useMemoryLayer = () => {
     const fetchMemories = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/assistant/memory');
+        const response = await fetch(`${API}/assistant/memory`);
 
         if (!response.ok) throw new Error('Failed to fetch memories');
 
@@ -39,7 +40,7 @@ export const useMemoryLayer = () => {
   const getMemorySummary = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/assistant/memory-summary');
+      const response = await fetch(`${API}/assistant/memory-summary`);
 
       if (!response.ok) throw new Error('Failed to get summary');
 
@@ -58,7 +59,7 @@ export const useMemoryLayer = () => {
   const addMemory = useCallback(async (fact, category = 'personal', confidence = 'high') => {
     try {
       setLoading(true);
-      const response = await fetch('/api/assistant/memory', {
+      const response = await fetch(`${API}/assistant/memory`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fact, category, confidence }),
@@ -81,7 +82,7 @@ export const useMemoryLayer = () => {
   const updateMemory = useCallback(async (memoryId, updates) => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/assistant/memory/${memoryId}`, {
+      const response = await fetch(`${API}/assistant/memory/${memoryId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -109,7 +110,7 @@ export const useMemoryLayer = () => {
   const deleteMemory = useCallback(async (memoryId) => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/assistant/memory/${memoryId}`, {
+      const response = await fetch(`${API}/assistant/memory/${memoryId}`, {
         method: 'DELETE',
       });
 
@@ -129,7 +130,7 @@ export const useMemoryLayer = () => {
   // Verify or dispute a memory fact
   const verifyMemory = useCallback(async (memoryId, verified) => {
     try {
-      const response = await fetch(`/api/assistant/memory/${memoryId}/verify`, {
+      const response = await fetch(`${API}/assistant/memory/${memoryId}/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ verified }),
