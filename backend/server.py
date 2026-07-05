@@ -54,8 +54,14 @@ async def _init_telegram_services() -> None:
             # inside FastAPI's already-running event loop.
             await app.telegram_app.initialize()
             await app.telegram_app.start()
-            await app.telegram_app.updater.start_polling()
-            logger.info("✅ Telegram bot initialized and polling started")
+            try:
+                await app.telegram_app.updater.start_polling()
+                logger.info("✅ Telegram bot initialized and polling started")
+            except Exception as poll_error:
+                if "Conflict: terminated by other getUpdates request" in str(poll_error):
+                    logger.warning("Telegram polling already active elsewhere; continuing startup")
+                else:
+                    raise
 
             # Initialize monitoring service
             from core.db import db
