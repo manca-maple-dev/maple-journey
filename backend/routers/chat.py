@@ -800,6 +800,8 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
 
     # Generate the actual assistant response with SMART MODEL SELECTION.
     # Analyze query and choose best model instead of just falling back.
+    response_max_tokens = _max_tokens_for_tier(tier, complexity)
+    common_headers["X-Maple-Max-Tokens"] = str(response_max_tokens)
     selected_provider, selected_model = _select_optimal_model(query_chars, tier)
     
     # Try selected provider first, then fallback chain
@@ -807,9 +809,21 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
     
     for provider in provider_order:
         if provider == "openai":
-            answer = await _openai_chat_response(system, sanitized_message, history=history, model=selected_model if selected_provider == "openai" else None)
+            answer = await _openai_chat_response(
+                system,
+                sanitized_message,
+                history=history,
+                model=selected_model if selected_provider == "openai" else None,
+                max_tokens=response_max_tokens,
+            )
         elif provider == "anthropic":
-            answer = await _anthropic_chat_response(system, sanitized_message, history=history, model=selected_model if selected_provider == "anthropic" else None)
+            answer = await _anthropic_chat_response(
+                system,
+                sanitized_message,
+                history=history,
+                model=selected_model if selected_provider == "anthropic" else None,
+                max_tokens=response_max_tokens,
+            )
         if answer:
             used_provider = provider
             break
