@@ -129,8 +129,16 @@ def _prepare_history_messages(history: list[dict] | None, max_messages: int = 8)
         content = (msg.get("content") or "").strip()
         if not content:
             continue
-        prepared.append({"role": role, "content": content[:1200]})
+        prepared.append({"role": role, "content": content[:600]})
     return prepared
+
+
+def _truncate_text(text: str, max_chars: int) -> str:
+    if not text:
+        return ""
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars]
 
 
 async def _recent_chat_history(uid: str, session_id: str, tier: str, limit: int = 10) -> list[dict]:
@@ -589,7 +597,7 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
         )
     
     # === SECURITY CHECK 2: Input Sanitization ===
-    sanitized_message = sanitize_query(body.message)
+    sanitized_message = _truncate_text(sanitize_query(body.message), 3500)
 
     # --- Intelligent credit gate (metered tiers only) ---
     complexity, cost = classify_query(sanitized_message)
@@ -696,12 +704,18 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
     )
     memory_context = await companion_memory.build_memory_brief(session_id)
 
+    # Hard caps to prevent oversized LLM payloads that can trigger TPM errors.
+    rag_context = _truncate_text(rag_context, 8000)
+    community_context = _truncate_text(community_context, 3000)
+    memory_context = _truncate_text(memory_context, 2000)
+
     # Build the sovereign system prompt with profile + RAG context + live web data
-    system = SOVEREIGN_SYSTEM_PROMPT + profile_summary(user) + memory_context + community_context + rag_context
+    user_profile = _truncate_text(profile_summary(user), 2500)
+    system = SOVEREIGN_SYSTEM_PROMPT + user_profile + memory_context + community_context + rag_context
     system += _wings_instruction(user)
     custom_instructions = _custom_system_instructions()
     if custom_instructions:
-        system += "\n\nOPERATOR CUSTOM INSTRUCTIONS:\n" + custom_instructions
+        system += "\n\nOPERATOR CUSTOM INSTRUCTIONS:\n" + _truncate_text(custom_instructions, 1500)
     
     # ============ INTELLIGENT CONTEXT WEIGHTING ============
     # Boost context importance based on query characteristics
@@ -748,6 +762,8 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
             "When providing community/resource recommendations, ALWAYS include: "
             "📍 [Organization Name], [Full Address] ☎️ [Phone Number]. Put contact info FIRST, not last."
         )
+
+    system = _truncate_text(system, 18000)
 
     # --- PROACTIVE INTELLIGENCE: Inject deadline alerts ---
     try:
