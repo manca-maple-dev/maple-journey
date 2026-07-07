@@ -244,6 +244,126 @@ MAX_TOKENS = 4096               # Full legal analysis depth with room for citati
 TOP_P = 0.92                     # Focused distribution — legal reasoning needs precision
 TEMPERATURE = 0.3                # Low temperature for factual accuracy in law
 
+# ============================================================================
+# SMART LLM ROUTING — Query-Aware Model Selection v2.0
+# ============================================================================
+def _analyze_query_characteristics(message: str) -> dict:
+    """Analyze query to determine optimal LLM routing.
+    
+    Returns routing hints: complexity, legal_depth, urgency, needs_web_search, etc.
+    """
+    message_lower = message.lower()
+    
+    # Emergency/crisis detection
+    crisis_keywords = [
+        'danger', 'unsafe', 'abuse', 'violence', 'threat', 'die', 'dying', 'emergency',
+        'deportation', 'removal', 'arrested', 'arrest', 'hospital', 'poison', 'hurt',
+        'attack', 'suicide', 'harm', 'rape', 'sexual', 'trafficking', 'lost child',
+        'medical emergency', 'overdose'
+    ]
+    has_crisis = any(kw in message_lower for kw in crisis_keywords)
+    
+    # Procedural questions (forms, steps, timelines)
+    procedural_keywords = ['how do i', 'steps to', 'process', 'timeline', 'application', 'form', 'apply for']
+    has_procedural = any(kw in message_lower for kw in procedural_keywords)
+    
+    # Eligibility/criteria questions
+    eligibility_keywords = ['qualify', 'eligible', 'requirements', 'criteria', 'need to', 'must', 'required']
+    has_eligibility = any(kw in message_lower for kw in eligibility_keywords)
+    
+    # Legal/regulatory questions
+    legal_keywords = ['law', 'legal', 'regulation', 'permitted', 'allowed', 'illegal', 'right', 'rights', 'policy']
+    has_legal = any(kw in message_lower for kw in legal_keywords)
+    
+    # Personal situation (needs contextualization)
+    personal_keywords = ['i', 'my', 'me', 'we', 'our', 'family', 'spouse', 'children']
+    has_personal = any(kw in message_lower for kw in personal_keywords)
+    
+    # Provincial/specific (needs current regional data)
+    provinces = ['ontario', 'bc', 'quebec', 'alberta', 'manitoba', 'nova scotia', 'brunswick', 'pei', 'nfl', 'yukon', 'nwt']
+    needs_regional = any(prov in message_lower for prov in provinces)
+    
+    # Time-sensitive (2024-2026 changes)
+    year_keywords = ['2026', '2025', '2024', 'recent', 'new', 'change', 'updated', 'current']
+    needs_current = any(kw in message_lower for kw in year_keywords)
+    
+    message_length = len(message.split())
+    
+    return {
+        'has_crisis': has_crisis,
+        'has_procedural': has_procedural,
+        'has_eligibility': has_eligibility,
+        'has_legal': has_legal,
+        'has_personal': has_personal,
+        'needs_regional': needs_regional,
+        'needs_current': needs_current,
+        'message_length': message_length,
+        'is_complex': message_length > 50,
+        'is_simple': message_length < 15,
+    }
+
+def _select_optimal_model(characteristics: dict, tier: str) -> tuple[str, str]:
+    """Select best model + temperature for the query.
+    
+    Returns: (provider, model_name)
+    """
+    # Crisis queries: Use most reliable, fastest model
+    if characteristics['has_crisis']:
+        return ('anthropic', 'claude-3-5-sonnet-20241022')  # Fastest, most reliable
+    
+    # Simple/straightforward: OpenAI is cheaper and fast enough
+    if characteristics['is_simple'] and not characteristics['has_legal']:
+        return ('openai', 'gpt-4o-mini')
+    
+    # Complex legal/procedural: Use Claude for reasoning depth
+    if characteristics['is_complex'] and (characteristics['has_legal'] or characteristics['has_procedural']):
+        return ('anthropic', 'claude-3-5-sonnet-20241022')
+    
+    # Personal/contextual: Claude better at understanding nuance
+    if characteristics['has_personal'] and characteristics['has_eligibility']:
+        return ('anthropic', 'claude-3-5-sonnet-20241022')
+    
+    # Regional/current: Both good; prefer based on tier
+    if characteristics['needs_regional'] or characteristics['needs_current']:
+        return ('anthropic', 'claude-3-5-sonnet-20241022')
+    
+    # Default: Use preferred provider or fallback chain
+    return ('anthropic', 'claude-3-5-sonnet-20241022')
+
+def _detect_crisis_intensity(message: str) -> tuple[bool, str, str]:
+    """Detect crisis level and recommend action.
+    
+    Returns: (is_crisis, severity_level, recommended_resource)
+    """
+    message_lower = message.lower()
+    
+    # Life-threatening emergency
+    immediate_danger = ['suicide', 'dying', 'death', 'overdose', 'poisoned', 'severe bleeding', 'not breathing']
+    if any(kw in message_lower for kw in immediate_danger):
+        return (True, 'CRITICAL', 'Call 911 immediately')
+    
+    # Abuse/violence emergency
+    violence_keywords = ['abuse', 'assault', 'rape', 'violence', 'trafficking', 'hit me', 'beat']
+    if any(kw in message_lower for kw in violence_keywords):
+        return (True, 'CRITICAL', 'Call 911 or text "START" to 741741 (Crisis Text Line)')
+    
+    # Deportation/removal (urgent but not immediate)
+    deportation_keywords = ['deportation', 'removal order', 'immigration detention', 'arrested by cbp']
+    if any(kw in message_lower for kw in deportation_keywords):
+        return (True, 'HIGH', 'Contact immigration lawyer immediately')
+    
+    # Medical emergency
+    medical_keywords = ['hospital', 'ambulance', 'emergency room', 'medical emergency']
+    if any(kw in message_lower for kw in medical_keywords):
+        return (True, 'HIGH', 'Go to nearest hospital or call 911')
+    
+    # Other crisis signals
+    crisis_keywords = ['danger', 'unsafe', 'threat', 'lost', 'missing']
+    if any(kw in message_lower for kw in crisis_keywords):
+        return (True, 'MEDIUM', 'Consider local emergency services')
+    
+    return (False, 'NONE', '')
+
 
 def _quality_directive(complexity: str, tier: str) -> str:
     """Return response-quality instructions tuned to query complexity.
@@ -543,8 +663,27 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
         credit_balance = debit_result.get("balance", 0)
         common_headers["X-Maple-Credits"] = str(credit_balance)
 
+    # --- INTELLIGENT ROUTING: Analyze query characteristics ---
+    query_chars = _analyze_query_characteristics(body.message)
+    is_crisis, crisis_level, crisis_resource = _detect_crisis_intensity(body.message)
+    
+    # If critical crisis detected, respond immediately with emergency info
+    if is_crisis and crisis_level == 'CRITICAL':
+        crisis_msg = f"🚨 **EMERGENCY DETECTED** 🚨\n\n{crisis_resource}\n\nIf you're experiencing a life-threatening situation, please seek immediate emergency help. Maple can provide immigration guidance, but emergency services are needed now.\n\n📞 **Canada Emergency:** 911\n💬 **Crisis Text Line:** Text START to 741741\n🏥 **Poison Control:** 1-800-268-9017\n\nAfter you're safe, I'm here to help."
+        await db.chat_messages.insert_one({"id": str(uuid.uuid4()), "user_id": uid, "session_id": session_id, "role": "user", "content": body.message, "created_at": now})
+        await db.chat_messages.insert_one({"id": str(uuid.uuid4()), "user_id": uid, "session_id": session_id, "role": "assistant", "content": crisis_msg, "created_at": now})
+        async def crisis_response():
+            yield crisis_msg
+        return StreamingResponse(crisis_response(), media_type="text/plain", headers={**common_headers, "X-Maple-Crisis": "CRITICAL"})
+    
+    # High priority crisis - add context to response
+    if is_crisis and crisis_level == 'HIGH':
+        common_headers["X-Maple-Crisis"] = "HIGH"
+        common_headers["X-Maple-Crisis-Resource"] = crisis_resource
+    
     history = await _recent_chat_history(uid, session_id, tier=tier, limit=10)
     common_headers["X-Maple-History-Count"] = str(len(history))
+    common_headers["X-Maple-Query-Type"] = ",".join([k for k, v in query_chars.items() if v and isinstance(v, bool)])
 
     await db.chat_messages.insert_one({"id": str(uuid.uuid4()), "user_id": uid, "session_id": session_id, "role": "user", "content": body.message, "created_at": now})
 
@@ -563,6 +702,21 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
     custom_instructions = _custom_system_instructions()
     if custom_instructions:
         system += "\n\nOPERATOR CUSTOM INSTRUCTIONS:\n" + custom_instructions
+    
+    # ============ INTELLIGENT CONTEXT WEIGHTING ============
+    # Boost context importance based on query characteristics
+    if query_chars.get('has_personal'):
+        # User context more important for personal queries
+        system = system.replace(profile_summary(user), profile_summary(user) + "\n\n[⚠ PERSONALIZATION BOOST: This user's profile is critical context for this personal question.]")
+    
+    if query_chars.get('needs_regional'):
+        # Community context crucial for regional queries
+        system = system.replace(community_context, community_context + "\n\n[⚠ REGIONAL BOOST: Location-specific information is essential here.]")
+    
+    if query_chars.get('needs_current'):
+        # RAG context most important for current/2026 info
+        system = system.replace(rag_context, rag_context + "\n\n[⚠ RECENCY BOOST: 2026 policy updates are critical for this answer.]")
+    
     instruction_sources = [
         "profile" if profile_summary(user) else "",
         "memory" if memory_context else "",
@@ -570,6 +724,7 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
         "rag" if rag_context else "",
         "wings" if _wings_instruction(user) else "",
         "custom" if custom_instructions else "",
+        "crisis-protocol" if is_crisis else "",
     ]
     common_headers["X-Maple-Instruction-Sources"] = ",".join([item for item in instruction_sources if item])
     system += _quality_directive(complexity, tier)
@@ -602,9 +757,13 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.debug(f"Proactive scheduler not available: {e}")
 
-    # Generate the actual assistant response with deterministic provider order.
-    # This ensures OPENAI_API_KEY can be primary instead of always falling back.
-    provider_order = _preferred_provider_order()
+    # Generate the actual assistant response with SMART MODEL SELECTION.
+    # Analyze query and choose best model instead of just falling back.
+    selected_provider, selected_model = _select_optimal_model(query_chars, tier)
+    
+    # Try selected provider first, then fallback chain
+    provider_order = [selected_provider] + [p for p in _preferred_provider_order() if p != selected_provider]
+    
     for provider in provider_order:
         if provider == "openai":
             answer = await _openai_chat_response(system, sanitized_message, history=history)
@@ -613,16 +772,17 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
         if answer:
             used_provider = provider
             break
+    
     common_headers["X-Maple-Provider"] = used_provider
+    common_headers["X-Maple-Selected-Model"] = selected_model
     if not answer:
         answer = grounded_fallback_response(reason="model-unavailable")
 
-    # Prefer keeping a strong answer by attaching verified citations from retrieval context
-    # before policy enforcement; this avoids unnecessary safe-fallback responses.
+    # ============ ENHANCED QUALITY ASSURANCE ============
+    # 1. Attach verified citations from retrieval context
     answer = attach_verified_citations_if_missing(answer, rag_context)
 
-    # Backward-safe policy invocation: production may still run an older rag module
-    # signature, so guard against argument mismatch and result-shape differences.
+    # 2. Policy enforcement with backward compatibility
     try:
         policy_result = enforce_citation_policy(answer)
     except TypeError:
@@ -635,10 +795,46 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
         citation_ok, citation_reason = True, "legacy-policy"
 
     if not citation_ok:
-        # Final recovery pass with explicit reason to keep UX deterministic.
         answer = grounded_fallback_response(reason=citation_reason or "citation-policy")
 
+    # 3. Response leak/safety filtering
     answer = filter_response_for_leaks(answer)
+    
+    # 4. SMART RESPONSE VALIDATION: Check quality metrics
+    def _validate_response_quality(resp: str) -> tuple[bool, str]:
+        """Validate response meets quality standards."""
+        if not resp or not resp.strip():
+            return False, "empty-response"
+        
+        # Check length appropriateness
+        word_count = len(resp.split())
+        if word_count < 10:
+            return False, "too-short"
+        if word_count > 2000 and tier == "free":
+            return False, "too-long-for-tier"
+        
+        # Check for citations in legal/eligibility queries
+        if query_chars.get('has_legal') or query_chars.get('has_eligibility'):
+            if '[' not in resp and 'Source:' not in resp and 'source' not in resp.lower():
+                # Only warn, don't reject - fallback may not have citations
+                logger.warning(f"Response lacks citations for legal query")
+        
+        # Check for action steps in procedural queries  
+        if query_chars.get('has_procedural') and tier in PAID_TIERS:
+            if not any(marker in resp for marker in ['Step', 'step', '→', '1.', '2.', '3.', 'then', 'next']):
+                logger.warning(f"Procedural response may lack structure")
+        
+        return True, "valid"
+    
+    is_valid, validation_reason = _validate_response_quality(answer)
+    if not is_valid:
+        if validation_reason == "empty-response":
+            answer = "I'm unable to generate a reliable answer right now. Please try again in a moment."
+        elif validation_reason == "too-short":
+            answer += "\n\n🤔 Tip: Ask me more specifically what you'd like to know, and I'll provide detailed guidance."
+    
+    common_headers["X-Maple-Response-Valid"] = str(is_valid)
+    common_headers["X-Maple-Response-Length"] = str(len(answer.split()))
 
     if not answer.strip():
         answer = "I’m unable to generate a reliable answer right now. Please try again in a moment."
