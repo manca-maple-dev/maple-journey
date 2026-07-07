@@ -145,7 +145,7 @@ async def _recent_chat_history(uid: str, session_id: str, tier: str, limit: int 
     return rows
 
 
-async def _openai_chat_response(system_prompt: str, user_message: str, history: list[dict] | None = None) -> str:
+async def _openai_chat_response(system_prompt: str, user_message: str, history: list[dict] | None = None, model: str | None = None) -> str:
     """Direct OpenAI fallback when EMERGENT routing is unavailable.
 
     Keeps Maple chat usable with OPENAI_API_KEY only.
@@ -162,7 +162,7 @@ async def _openai_chat_response(system_prompt: str, user_message: str, history: 
         from openai import AsyncOpenAI
 
         client = AsyncOpenAI(api_key=openai_key)
-        preferred = _env_value("OPENAI_CHAT_MODEL") or "gpt-4.1"
+        preferred = model or _env_value("OPENAI_CHAT_MODEL") or "gpt-4.1"
         candidates = []
         for m in [preferred, "gpt-4o-mini", "gpt-4o"]:
             if m not in candidates:
@@ -198,7 +198,7 @@ async def _openai_chat_response(system_prompt: str, user_message: str, history: 
         return ""
 
 
-async def _anthropic_chat_response(system_prompt: str, user_message: str, history: list[dict] | None = None) -> str:
+async def _anthropic_chat_response(system_prompt: str, user_message: str, history: list[dict] | None = None, model: str | None = None) -> str:
     """Secondary fallback when OpenAI is unavailable."""
     anthropic_key = _env_value("ANTHROPIC_API_KEY")
     if not anthropic_key:
@@ -207,10 +207,10 @@ async def _anthropic_chat_response(system_prompt: str, user_message: str, histor
         import anthropic
 
         client = anthropic.AsyncAnthropic(api_key=anthropic_key)
-        model = _env_value("ANTHROPIC_CHAT_MODEL") or "claude-3-5-sonnet-latest"
+        selected_model = model or _env_value("ANTHROPIC_CHAT_MODEL") or "claude-3-5-sonnet-latest"
         history_messages = _prepare_history_messages(history)
         resp = await client.messages.create(
-            model=model,
+            model=selected_model,
             max_tokens=MAX_TOKENS,
             temperature=TEMPERATURE,
             top_p=TOP_P,
@@ -766,9 +766,9 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
     
     for provider in provider_order:
         if provider == "openai":
-            answer = await _openai_chat_response(system, sanitized_message, history=history)
+            answer = await _openai_chat_response(system, sanitized_message, history=history, model=selected_model if selected_provider == "openai" else None)
         elif provider == "anthropic":
-            answer = await _anthropic_chat_response(system, sanitized_message, history=history)
+            answer = await _anthropic_chat_response(system, sanitized_message, history=history, model=selected_model if selected_provider == "anthropic" else None)
         if answer:
             used_provider = provider
             break
