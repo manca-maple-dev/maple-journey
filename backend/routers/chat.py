@@ -116,7 +116,36 @@ def _preferred_provider_order() -> list[str]:
     return order
 
 
-async def _openai_chat_response(system_prompt: str, user_message: str) -> str:
+def _prepare_history_messages(history: list[dict] | None, max_messages: int = 8) -> list[dict]:
+    """Normalize stored chat turns into compact OpenAI/Anthropic message objects."""
+    if not history:
+        return []
+
+    prepared = []
+    for msg in history[-max_messages:]:
+        role = (msg.get("role") or "").strip().lower()
+        if role not in {"user", "assistant"}:
+            continue
+        content = (msg.get("content") or "").strip()
+        if not content:
+            continue
+        prepared.append({"role": role, "content": content[:1200]})
+    return prepared
+
+
+async def _recent_chat_history(uid: str, session_id: str, tier: str, limit: int = 10) -> list[dict]:
+    """Load recent user/assistant turns to improve coherence across replies."""
+    query = {"user_id": uid, "session_id": session_id, "role": {"$in": ["user", "assistant"]}}
+    cutoff = _retention_cutoff_iso(tier)
+    if cutoff:
+        query["created_at"] = {"$gte": cutoff}
+
+    rows = await db.chat_messages.find(query).sort("created_at", -1).to_list(limit)
+    rows.reverse()
+    return rows
+
+
+async def _openai_chat_response(system_prompt: str, user_message: str, history: list[dict] | None = None) -> str:
     """Direct OpenAI fallback when EMERGENT routing is unavailable.
 
     Keeps Maple chat usable with OPENAI_API_KEY only.
@@ -139,14 +168,16 @@ async def _openai_chat_response(system_prompt: str, user_message: str) -> str:
             if m not in candidates:
                 candidates.append(m)
         last_error = None
+        history_messages = _prepare_history_messages(history)
         for model in candidates:
             try:
                 resp = await client.chat.completions.create(
                     model=model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_message},
-                    ],
+                    messages=(
+                        [{"role": "system", "content": system_prompt}]
+                        + history_messages
+                        + [{"role": "user", "content": user_message}]
+                    ),
                     temperature=TEMPERATURE,
                     max_tokens=MAX_TOKENS,
                     top_p=TOP_P,
@@ -167,7 +198,7 @@ async def _openai_chat_response(system_prompt: str, user_message: str) -> str:
         return ""
 
 
-async def _anthropic_chat_response(system_prompt: str, user_message: str) -> str:
+async def _anthropic_chat_response(system_prompt: str, user_message: str, history: list[dict] | None = None) -> str:
     """Secondary fallback when OpenAI is unavailable."""
     anthropic_key = _env_value("ANTHROPIC_API_KEY")
     if not anthropic_key:
@@ -177,13 +208,14 @@ async def _anthropic_chat_response(system_prompt: str, user_message: str) -> str
 
         client = anthropic.AsyncAnthropic(api_key=anthropic_key)
         model = _env_value("ANTHROPIC_CHAT_MODEL") or "claude-3-5-sonnet-latest"
+        history_messages = _prepare_history_messages(history)
         resp = await client.messages.create(
             model=model,
             max_tokens=MAX_TOKENS,
             temperature=TEMPERATURE,
             top_p=TOP_P,
             system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
+            messages=history_messages + [{"role": "user", "content": user_message}],
         )
         chunks = []
         for block in getattr(resp, "content", []) or []:
@@ -511,6 +543,9 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
         credit_balance = debit_result.get("balance", 0)
         common_headers["X-Maple-Credits"] = str(credit_balance)
 
+    history = await _recent_chat_history(uid, session_id, tier=tier, limit=10)
+    common_headers["X-Maple-History-Count"] = str(len(history))
+
     await db.chat_messages.insert_one({"id": str(uuid.uuid4()), "user_id": uid, "session_id": session_id, "role": "user", "content": body.message, "created_at": now})
 
     # --- RAG Retrieval + Omniscience Engine: ground the response in authoritative documents ---
@@ -572,9 +607,9 @@ async def assistant_chat(body: ChatIn, user: dict = Depends(get_current_user)):
     provider_order = _preferred_provider_order()
     for provider in provider_order:
         if provider == "openai":
-            answer = await _openai_chat_response(system, sanitized_message)
+            answer = await _openai_chat_response(system, sanitized_message, history=history)
         elif provider == "anthropic":
-            answer = await _anthropic_chat_response(system, sanitized_message)
+            answer = await _anthropic_chat_response(system, sanitized_message, history=history)
         if answer:
             used_provider = provider
             break
