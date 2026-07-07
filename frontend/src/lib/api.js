@@ -7,9 +7,13 @@ function resolveBackendUrl() {
 
   // Temporary production safety valve: api.maplejourney.ca is currently failing CORS.
   // Route web traffic to the known healthy Railway API host until DNS/CORS is fixed.
-  if (typeof window !== "undefined" && window.location.hostname === "www.maplejourney.ca") {
-    if (!raw || /api\.maplejourney\.ca/i.test(raw)) {
-      return "https://web-production-1acc6.up.railway.app";
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    // On production domains, if no backend URL or pointing to failed api.maplejourney.ca, use Railway
+    if (hostname === "www.maplejourney.ca" || hostname === "maplejourney.ca" || hostname.includes("vercel.app")) {
+      if (!raw || /api\.maplejourney\.ca/i.test(raw) || raw.includes("127.0.0.1")) {
+        return "https://web-production-1acc6.up.railway.app";
+      }
     }
   }
 
