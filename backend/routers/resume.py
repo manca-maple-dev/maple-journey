@@ -20,7 +20,6 @@ from core.db import db
 from core.security import get_current_user
 from models import ResumeDraft, ResumeGenerateIn, ResumeSaveIn
 from services.resume_pdf import render_resume_to_pdf, get_template_list
-from services.credits import get_user_tier
 
 logger = logging.getLogger("maplejourney.resume")
 router = APIRouter(prefix="/resume", tags=["resume"])
@@ -84,7 +83,7 @@ async def generate_resume(
     """
     try:
         user_id = str(user["_id"])
-        tier = await get_user_tier(user_id)
+        tier = user.get("tier") or "free"
 
         # Check generation limit
         can_generate = await check_generation_limit(user_id, tier)
