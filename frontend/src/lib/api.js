@@ -1,6 +1,22 @@
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const RAW_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
+function resolveBackendUrl() {
+  const raw = (RAW_BACKEND_URL || "").trim();
+
+  // Temporary production safety valve: api.maplejourney.ca is currently failing CORS.
+  // Route web traffic to the known healthy Railway API host until DNS/CORS is fixed.
+  if (typeof window !== "undefined" && window.location.hostname === "www.maplejourney.ca") {
+    if (!raw || /api\.maplejourney\.ca/i.test(raw)) {
+      return "https://web-production-1acc6.up.railway.app";
+    }
+  }
+
+  return raw;
+}
+
+const BACKEND_URL = resolveBackendUrl();
 export const API = BACKEND_URL ? `${BACKEND_URL}/api` : "/api";
 
 export function getStoredToken() {
