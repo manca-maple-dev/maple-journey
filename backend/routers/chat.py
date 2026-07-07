@@ -96,23 +96,31 @@ def _wings_instruction(user: dict) -> str:
 def _preferred_provider_order() -> list[str]:
     """Choose provider order from env + available keys.
 
-    Defaults to OpenAI first when available so OPENAI_API_KEY works out of the box.
+    OpenAI always last as fallback (most reliable). Defaults to OpenAI first when available 
+    so OPENAI_API_KEY works out of the box, but in fallback chain it's the last resort.
     """
     preferred = (_env_value("MAPLE_LLM_PROVIDER", "MODEL_PROVIDER") or "").lower()
     has_openai = bool(_env_value("OPENAI_API_KEY", "OPENAI_KEY", "OPENAI_API_TOKEN", "EMERGENT_LLM_KEY"))
     has_anthropic = bool(_env_value("ANTHROPIC_API_KEY"))
 
     if preferred in {"openai", "anthropic"}:
-        order = [preferred, "anthropic" if preferred == "openai" else "openai"]
-    elif has_openai:
-        order = ["openai", "anthropic"]
+        # If explicitly preferred, use that first, but keep OpenAI as fallback
+        other = "anthropic" if preferred == "openai" else "openai"
+        order = [preferred, other]
     else:
+        # Default: Anthropic first (for complex queries), OpenAI as fallback
         order = ["anthropic", "openai"]
 
     if not has_openai:
         order = [p for p in order if p != "openai"]
     if not has_anthropic:
         order = [p for p in order if p != "anthropic"]
+    
+    # Ensure OpenAI is last if available (reliable fallback)
+    if "openai" in order and order[-1] != "openai":
+        order.remove("openai")
+        order.append("openai")
+    
     return order
 
 
@@ -206,7 +214,13 @@ async def _openai_chat_response(system_prompt: str, user_message: str, history: 
         return ""
 
 
-async def _anthropic_chat_response(system_prompt: str, user_message: str, history: list[dict] | None = None, model: str | None = None) -> str:
+async def _anthropic_chat_response(
+    system_prompt: str,
+    user_message: str,
+    history: list[dict] | None = None,
+    model: str | None = None,
+    max_tokens: int = MAX_TOKENS,
+) -> str:
     """Secondary fallback when OpenAI is unavailable."""
     anthropic_key = _env_value("ANTHROPIC_API_KEY")
     if not anthropic_key:
@@ -219,7 +233,7 @@ async def _anthropic_chat_response(system_prompt: str, user_message: str, histor
         history_messages = _prepare_history_messages(history)
         resp = await client.messages.create(
             model=selected_model,
-            max_tokens=MAX_TOKENS,
+            max_tokens=max_tokens,
             temperature=TEMPERATURE,
             top_p=TOP_P,
             system=system_prompt,
@@ -251,6 +265,17 @@ MODEL_NAME = "claude-sonnet-4-6"  # Highest tier: Claude Sonnet 4.6
 MAX_TOKENS = 4096               # Full legal analysis depth with room for citations
 TOP_P = 0.92                     # Focused distribution — legal reasoning needs precision
 TEMPERATURE = 0.3                # Low temperature for factual accuracy in law
+
+
+def _max_tokens_for_tier(tier: str, complexity: str) -> int:
+    """Bound model output size by tier and complexity to control cost and TPM spikes."""
+    if tier == "free":
+        return 700 if complexity in {"research", "deep"} else 500
+    if tier in {"plus", "premium"}:
+        return 1200 if complexity in {"research", "deep"} else 900
+    if tier == "family":
+        return 1600 if complexity in {"research", "deep"} else 1200
+    return 900
 
 # ============================================================================
 # SMART LLM ROUTING — Query-Aware Model Selection v2.0
