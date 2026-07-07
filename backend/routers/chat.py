@@ -3,7 +3,7 @@
 Implements the 'Sovereign Authority' + 'Omniscience' pattern: every response is grounded in
 retrieved IRCC/IRPA documents with mandatory deep-linked citations, augmented by Live Web
 Search when internal knowledge relevance is insufficient.
-
+    max_tokens: int | None = None,
 Model: OpenAI chat model with parameters optimized for legal reasoning:
 - Max Tokens: 4096 (full-depth legal analysis with citations)
 - Top-P: 0.92 (focused but not overly deterministic — allows nuanced legal interpretation)
@@ -15,10 +15,12 @@ profile-aware guidance with full RAG retrieval + Omniscience Live Web Search.
 import os
 import uuid
 import logging
+import hashlib
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from core.db import db, clean
 from core.config import SOVEREIGN_SYSTEM_PROMPT, PAID_TIERS, CHAT_RETENTION_DAYS
@@ -36,7 +38,7 @@ from services.credits import (
     ensure_wallet, auto_refill_daily, debit_credits, wallet_summary,
     classify_query, upsell_nudge, should_meter_tier,
 )
-from services.prompt_security import (
+                    max_tokens=max_tokens if max_tokens is not None else MAX_TOKENS,
     detect_injection_attempt,
     sanitize_query,
     filter_response_for_leaks,
@@ -47,6 +49,62 @@ from services.community_rag import build_community_context
 logger = logging.getLogger("maplejourney.chat")
 router = APIRouter(tags=["chat"])
 companion_memory = CompanionMemory(db)
+
+# ============================================================================
+# RESPONSE FEEDBACK & CACHING MODELS
+# ============================================================================
+
+class ResponseFeedback(BaseModel):
+    """Track user feedback on AI responses."""
+    message_id: str
+    helpful: bool
+    reason: str | None = None
+    rating: int | None = None  # 1-5 stars
+
+
+async def _get_cached_response(query_hash: str, user_id: str, tier: str) -> dict | None:
+    """Retrieve cached response for FAQ queries (only free tier for cost savings)."""
+    if tier != "free":
+        return None  # Don't cache for paid users - they get fresh responses
+    
+    try:
+        cache = await db.response_cache.find_one({
+            "query_hash": query_hash,
+            "is_faq": True,
+            "created_at": {"$gte": datetime.now(timezone.utc) - timedelta(days=30)}
+        })
+        if cache and cache.get("avg_helpful_ratio", 0) > 0.7:  # Only use if >70% found helpful
+            return cache
+    except Exception as e:
+        logger.debug(f"Cache lookup failed (non-critical): {e}")
+    
+    return None
+
+
+async def _cache_response(query: str, response: str, query_hash: str, provider: str, model: str) -> None:
+    """Store response in cache for future similar queries."""
+    try:
+        await db.response_cache.insert_one({
+            "query_hash": query_hash,
+            "query": query,
+            "response": response,
+            "provider": provider,
+            "model": model,
+            "is_faq": len(query) < 150 and query.count("?") == 1,  # Simple single questions
+            "cached_count": 0,
+            "helpful_count": 0,
+            "unhelpful_count": 0,
+            "avg_helpful_ratio": 0.5,  # Start neutral
+            "created_at": datetime.now(timezone.utc),
+        })
+    except Exception as e:
+        logger.debug(f"Cache store failed (non-critical): {e}")
+
+
+def _query_hash(query: str) -> str:
+    """Generate normalized hash for query similarity matching."""
+    normalized = query.strip().lower().replace("?", "").replace(".", "")
+    return hashlib.md5(normalized.encode()).hexdigest()
 
 
 def _env_value(*keys: str) -> str:
@@ -219,7 +277,7 @@ async def _anthropic_chat_response(
     user_message: str,
     history: list[dict] | None = None,
     model: str | None = None,
-    max_tokens: int = MAX_TOKENS,
+    max_tokens: int | None = None,
 ) -> str:
     """Secondary fallback when OpenAI is unavailable."""
     anthropic_key = _env_value("ANTHROPIC_API_KEY")
@@ -233,7 +291,7 @@ async def _anthropic_chat_response(
         history_messages = _prepare_history_messages(history)
         resp = await client.messages.create(
             model=selected_model,
-            max_tokens=max_tokens,
+            max_tokens=max_tokens if max_tokens is not None else MAX_TOKENS,
             temperature=TEMPERATURE,
             top_p=TOP_P,
             system=system_prompt,
