@@ -177,6 +177,7 @@ if _cors_origins == "*":
         "https://maple-journey-app.vercel.app",
         "https://maplejourney.ca",
         "https://www.maplejourney.ca",
+        "https://api.maplejourney.ca",
     ]
 else:
     _allow_origins = [o.strip() for o in _cors_origins.split(",") if o.strip()]
