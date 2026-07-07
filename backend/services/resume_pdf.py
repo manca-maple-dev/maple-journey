@@ -9,7 +9,6 @@ Templates optimized for Canadian employers and ATS systems:
 
 from io import BytesIO
 from datetime import datetime
-from weasyprint import HTML, CSS
 from models import ResumeDraft
 
 
@@ -546,6 +545,12 @@ async def render_resume_to_pdf(resume: ResumeDraft, template: str = "classic", a
         html_string = _compact_template(resume, add_watermark)
     else:  # classic
         html_string = _classic_template(resume, add_watermark)
+
+    try:
+        # Lazy import so missing native libs for WeasyPrint don't break API startup.
+        from weasyprint import HTML
+    except Exception as exc:
+        raise RuntimeError("PDF rendering dependencies are not available on this server") from exc
 
     html_obj = HTML(string=html_string)
     pdf_bytes = html_obj.write_pdf()
